@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily archive and retention for if_flow JSONL files
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+Unit=if_flow-archive.service
+
+[Install]
+WantedBy=timers.target

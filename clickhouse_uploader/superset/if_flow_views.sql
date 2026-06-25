@@ -1,0 +1,140 @@
+CREATE OR REPLACE VIEW default.if_flow_final AS
+SELECT
+    event_date,
+    minute_ts,
+    toDateTime(minute_ts, 'Europe/Moscow') AS minute_dt,
+    toDateTime(minute_ts + 3 * 3600, 'UTC') AS minute_dt_superset,
+    minute_iso,
+    host,
+    iface,
+    proto,
+    class,
+    direction,
+    pid,
+    attr_source,
+    process,
+    cmdline,
+    workload,
+    sni,
+    host_name,
+    src_ip,
+    src_port,
+    dst_ip,
+    dst_port,
+    packets,
+    bytes,
+    bytes_human,
+    connections,
+    connections_effective,
+    connection_inferred,
+    tcp_seen_without_syn,
+    toTimeZone(parseDateTimeBestEffortOrNull(first_seen_iso), 'Europe/Moscow') AS first_seen_dt,
+    toTimeZone(parseDateTimeBestEffortOrNull(last_seen_iso), 'Europe/Moscow') AS last_seen_dt,
+    toDateTime(toUnixTimestamp(parseDateTimeBestEffortOrNull(first_seen_iso)) + 3 * 3600, 'UTC') AS first_seen_dt_superset,
+    toDateTime(toUnixTimestamp(parseDateTimeBestEffortOrNull(last_seen_iso)) + 3 * 3600, 'UTC') AS last_seen_dt_superset,
+    first_seen_iso,
+    last_seen_iso
+FROM default.if_flow
+WHERE record_type = 'final';
+
+CREATE OR REPLACE VIEW default.if_flow_updates AS
+SELECT
+    event_date,
+    minute_ts,
+    toDateTime(minute_ts, 'Europe/Moscow') AS minute_dt,
+    toDateTime(minute_ts + 3 * 3600, 'UTC') AS minute_dt_superset,
+    minute_iso,
+    host,
+    iface,
+    proto,
+    class,
+    direction,
+    pid,
+    attr_source,
+    process,
+    cmdline,
+    workload,
+    sni,
+    host_name,
+    src_ip,
+    src_port,
+    dst_ip,
+    dst_port,
+    packets,
+    bytes,
+    bytes_human,
+    connections,
+    connections_effective,
+    connection_inferred,
+    tcp_seen_without_syn,
+    toTimeZone(parseDateTimeBestEffortOrNull(first_seen_iso), 'Europe/Moscow') AS first_seen_dt,
+    toTimeZone(parseDateTimeBestEffortOrNull(last_seen_iso), 'Europe/Moscow') AS last_seen_dt,
+    toDateTime(toUnixTimestamp(parseDateTimeBestEffortOrNull(first_seen_iso)) + 3 * 3600, 'UTC') AS first_seen_dt_superset,
+    toDateTime(toUnixTimestamp(parseDateTimeBestEffortOrNull(last_seen_iso)) + 3 * 3600, 'UTC') AS last_seen_dt_superset,
+    first_seen_iso,
+    last_seen_iso
+FROM default.if_flow
+WHERE record_type = 'update';
+
+CREATE OR REPLACE VIEW default.if_flow_minute_host AS
+SELECT
+    event_date,
+    minute_ts,
+    toDateTime(minute_ts, 'Europe/Moscow') AS minute_dt,
+    toDateTime(minute_ts + 3 * 3600, 'UTC') AS minute_dt_superset,
+    minute_iso,
+    host,
+    direction,
+    class,
+    proto,
+    count() AS flow_rows,
+    sum(packets) AS packets,
+    sum(bytes) AS bytes,
+    sum(connections_effective) AS connections
+FROM default.if_flow
+WHERE record_type = 'final'
+GROUP BY
+    event_date,
+    minute_ts,
+    minute_iso,
+    host,
+    direction,
+    class,
+    proto;
+
+CREATE OR REPLACE VIEW default.if_flow_top_pairs AS
+SELECT
+    event_date,
+    minute_ts,
+    toDateTime(minute_ts, 'Europe/Moscow') AS minute_dt,
+    toDateTime(minute_ts + 3 * 3600, 'UTC') AS minute_dt_superset,
+    minute_iso,
+    host,
+    direction,
+    class,
+    proto,
+    src_ip,
+    src_port,
+    dst_ip,
+    dst_port,
+    anyLast(process) AS process,
+    anyLast(workload) AS workload,
+    anyLast(sni) AS sni,
+    anyLast(host_name) AS host_name,
+    sum(packets) AS packets,
+    sum(bytes) AS bytes,
+    sum(connections_effective) AS connections
+FROM default.if_flow
+WHERE record_type = 'final'
+GROUP BY
+    event_date,
+    minute_ts,
+    minute_iso,
+    host,
+    direction,
+    class,
+    proto,
+    src_ip,
+    src_port,
+    dst_ip,
+    dst_port;

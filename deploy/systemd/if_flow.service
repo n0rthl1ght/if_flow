@@ -1,0 +1,19 @@
+[Unit]
+Description=if_flow host traffic monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/if_flow/if_flow.env
+WorkingDirectory=/opt/if_flow
+ExecStart=/opt/if_flow/scripts/run_if_flow.sh
+Restart=always
+RestartSec=3
+LimitMEMLOCK=infinity
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_BPF CAP_PERFMON
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_BPF CAP_PERFMON
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,7 @@
+[Unit]
+Description=Compress and retain old if_flow JSONL files
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/if_flow/if_flow.env
+ExecStart=/opt/if_flow/scripts/if_flow_archive.sh --base-path ${IF_FLOW_JSON_PATH:-/opt/if_flow/if_flow.jsonl} --retention-days ${IF_FLOW_RETENTION_DAYS:-7}

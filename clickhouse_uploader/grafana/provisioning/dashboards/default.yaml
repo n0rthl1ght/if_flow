@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: if_flow_dashboards
+    orgId: 1
+    folder: if_flow
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

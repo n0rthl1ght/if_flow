@@ -1,0 +1,7 @@
+FROM apache/superset:latest
+
+USER root
+RUN /app/.venv/bin/python -m ensurepip --upgrade \
+    && /app/.venv/bin/python -m pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && /app/.venv/bin/python -m pip install --no-cache-dir clickhouse-connect
+USER superset

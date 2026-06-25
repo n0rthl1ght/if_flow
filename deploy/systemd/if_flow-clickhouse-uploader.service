@@ -1,0 +1,15 @@
+[Unit]
+Description=Upload if_flow JSONL batches to ClickHouse
+After=network-online.target if_flow.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/if_flow/if_flow-clickhouse.env
+WorkingDirectory=/opt/if_flow
+ExecStart=/usr/bin/env python3 /opt/if_flow/clickhouse_uploader/if_flow_clickhouse_uploader.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
