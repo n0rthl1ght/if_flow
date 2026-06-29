@@ -127,6 +127,196 @@ static int is_multicast_ip(const char *ip) {
            strncmp(ip, "ff", 2) == 0;
 }
 
+typedef struct {
+    uint16_t port;
+    const char *class_name;
+} port_class_rule_t;
+
+/*
+ * Port rules are stored in priority order. The first matching rule wins, which
+ * keeps the behavior predictable and makes it easy to extend the classifier
+ * later without growing another long if/else chain.
+ */
+static const port_class_rule_t g_port_class_rules[] = {
+    {5353, "mdns"},
+    {5355, "llmnr"},
+    {53, "dns"},
+    {853, "dot"},
+    {123, "ntp"},
+    {111, "rpcbind"},
+    {135, "msrpc"},
+    {593, "msrpc"},
+    {22, "ssh"},
+    {21, "ftp"},
+    {20, "ftp_data"},
+    {23, "telnet"},
+    {873, "rsync"},
+    {9418, "git"},
+    {3690, "svn"},
+    {25, "smtp"},
+    {465, "smtp"},
+    {587, "smtp"},
+    {110, "pop3"},
+    {995, "pop3"},
+    {143, "imap"},
+    {993, "imap"},
+    {389, "ldap"},
+    {636, "ldap"},
+    {88, "kerberos"},
+    {1812, "radius"},
+    {1813, "radius"},
+    {67, "dhcp"},
+    {68, "dhcp"},
+    {69, "tftp"},
+    {137, "netbios"},
+    {138, "netbios"},
+    {139, "netbios"},
+    {445, "smb"},
+    {2049, "nfs"},
+    {3260, "iscsi"},
+    {3306, "mysql"},
+    {5432, "postgres"},
+    {1433, "mssql"},
+    {1434, "mssql"},
+    {1521, "oracle"},
+    {9042, "cassandra"},
+    {26257, "cockroachdb"},
+    {8123, "clickhouse"},
+    {9000, "clickhouse"},
+    {9004, "clickhouse"},
+    {9005, "clickhouse"},
+    {9440, "clickhouse"},
+    {6379, "redis"},
+    {27017, "mongodb"},
+    {27018, "mongodb"},
+    {27019, "mongodb"},
+    {11211, "memcached"},
+    {5672, "amqp"},
+    {5671, "amqp"},
+    {15672, "rabbitmq_mgmt"},
+    {15671, "rabbitmq_mgmt"},
+    {1883, "mqtt"},
+    {8883, "mqtt"},
+    {9092, "kafka"},
+    {2181, "zookeeper"},
+    {2379, "etcd"},
+    {2380, "etcd"},
+    {2381, "etcd"},
+    {2382, "etcd"},
+    {2375, "docker_api"},
+    {2376, "docker_api"},
+    {2601, "zebra"},
+    {2602, "ripd"},
+    {2603, "ripngd"},
+    {2604, "ospfd"},
+    {2605, "bgpd"},
+    {2606, "ospf6d"},
+    {2607, "isisd"},
+    {2608, "babeld"},
+    {2609, "pimd"},
+    {2610, "ldpd"},
+    {2611, "nhrpd"},
+    {2612, "eigrpd"},
+    {2613, "bfdd"},
+    {2614, "fabricd"},
+    {2615, "pathd"},
+    {2616, "staticd"},
+    {2617, "bfdd"},
+    {3784, "bfdd"},
+    {3785, "bfdd"},
+    {4784, "bfdd"},
+    {6443, "k8s_api"},
+    {10250, "kubelet"},
+    {10050, "zabbix"},
+    {10051, "zabbix"},
+    {8500, "consul"},
+    {8502, "consul"},
+    {8600, "consul"},
+    {8200, "vault"},
+    {8201, "vault"},
+    {4646, "nomad"},
+    {4647, "nomad"},
+    {4648, "nomad"},
+    {9200, "elasticsearch"},
+    {9300, "elasticsearch"},
+    {5601, "kibana"},
+    {9090, "prometheus"},
+    {9093, "alertmanager"},
+    {9100, "node_exporter"},
+    {9411, "zipkin"},
+    {19999, "netdata"},
+    {3000, "grafana"},
+    {3100, "loki"},
+    {5044, "logstash"},
+    {5666, "nrpe"},
+    {24224, "fluentd"},
+    {4317, "otlp"},
+    {4318, "otlp"},
+    {6831, "tracing"},
+    {6832, "tracing"},
+    {14250, "tracing"},
+    {14268, "tracing"},
+    {16686, "tracing"},
+    {8086, "influxdb"},
+    {8125, "statsd"},
+    {8126, "datadog_apm"},
+    {161, "snmp"},
+    {162, "snmp"},
+    {514, "syslog"},
+    {6514, "syslog"},
+    {631, "ipp"},
+    {49, "tacacs"},
+    {464, "kerberos_kpasswd"},
+    {554, "rtsp"},
+    {655, "tinc"},
+    {749, "kerberos_admin"},
+    {20048, "mountd"},
+    {3389, "rdp"},
+    {5900, "vnc"},
+    {5060, "sip"},
+    {5061, "sip"},
+    {500, "ipsec"},
+    {4500, "ipsec"},
+    {4505, "salt"},
+    {4506, "salt"},
+    {1194, "openvpn"},
+    {1701, "l2tp"},
+    {1723, "pptp"},
+    {51820, "wireguard"},
+    {51821, "wireguard"},
+    {32223, "wireguard"},
+    {35053, "wireguard"},
+    {10251, "wireguard"},
+    {10000, "wireguard"},
+    {65100, "wireguard"},
+    {4789, "vxlan"},
+    {6081, "geneve"},
+    {179, "bgp"},
+};
+
+static const char *classify_by_port_rules(const flow_key_t *key) {
+    size_t i;
+    if (!key) return NULL;
+    for (i = 0; i < sizeof(g_port_class_rules) / sizeof(g_port_class_rules[0]); ++i) {
+        if (flow_has_port(key, g_port_class_rules[i].port)) {
+            return g_port_class_rules[i].class_name;
+        }
+    }
+    return NULL;
+}
+
+static const char *classify_by_early_port_rules(const flow_key_t *key) {
+    static const uint16_t early_ports[] = {5353, 5355, 53, 853, 123};
+    size_t i;
+    if (!key) return NULL;
+    for (i = 0; i < sizeof(early_ports) / sizeof(early_ports[0]); ++i) {
+        if (flow_has_port(key, early_ports[i])) {
+            return classify_by_port_rules(key);
+        }
+    }
+    return NULL;
+}
+
 /*
  * Classification is intentionally heuristic and port-first. The goal is not
  * perfect protocol identification, but a stable operational label that makes
@@ -136,13 +326,11 @@ static const char *classify_flow(const flow_key_t *key, const char *sni, const c
     static const uint16_t http_ports[] = {80, 8000, 8008, 8080, 8888};
     static const uint16_t https_ports[] = {443, 8443, 9443};
     static const uint16_t quic_ports[] = {443, 8443, 9443};
+    const char *early_port_class;
+    const char *port_class;
     if (!key) return "other";
-    if (flow_has_port(key, 5353)) return "mdns";
-    if (flow_has_port(key, 5355)) return "llmnr";
-    if (flow_has_port(key, 1900)) return "ssdp";
-    if (flow_has_port(key, 53)) return "dns";
-    if (flow_has_port(key, 853)) return "dot";
-    if (flow_has_port(key, 123)) return "ntp";
+    early_port_class = classify_by_early_port_rules(key);
+    if (early_port_class) return early_port_class;
     if (key->proto == IPPROTO_UDP &&
         flow_has_any_port(key, quic_ports, sizeof(quic_ports) / sizeof(quic_ports[0]))) return "quic";
     if (flow_has_any_port(key, http_ports, sizeof(http_ports) / sizeof(http_ports[0])) && host && host[0]) return "http";
@@ -151,79 +339,8 @@ static const char *classify_flow(const flow_key_t *key, const char *sni, const c
     if ((sni && sni[0]) || (host && host[0])) return "named_app";
     if (flow_has_any_port(key, https_ports, sizeof(https_ports) / sizeof(https_ports[0]))) return "https";
     if (flow_has_any_port(key, http_ports, sizeof(http_ports) / sizeof(http_ports[0]))) return "http";
-    if (flow_has_port(key, 111)) return "rpcbind";
-    if (flow_has_port(key, 135) || flow_has_port(key, 593)) return "msrpc";
-    if (flow_has_port(key, 22)) return "ssh";
-    if (flow_has_port(key, 21)) return "ftp";
-    if (flow_has_port(key, 20)) return "ftp_data";
-    if (flow_has_port(key, 23)) return "telnet";
-    if (flow_has_port(key, 873)) return "rsync";
-    if (flow_has_port(key, 9418)) return "git";
-    if (flow_has_port(key, 3690)) return "svn";
-    if (flow_has_port(key, 25) || flow_has_port(key, 465) || flow_has_port(key, 587)) return "smtp";
-    if (flow_has_port(key, 110) || flow_has_port(key, 995)) return "pop3";
-    if (flow_has_port(key, 143) || flow_has_port(key, 993)) return "imap";
-    if (flow_has_port(key, 389) || flow_has_port(key, 636)) return "ldap";
-    if (flow_has_port(key, 88)) return "kerberos";
-    if (flow_has_port(key, 1812) || flow_has_port(key, 1813)) return "radius";
-    if (flow_has_port(key, 67) || flow_has_port(key, 68)) return "dhcp";
-    if (flow_has_port(key, 69)) return "tftp";
-    if (flow_has_port(key, 137) || flow_has_port(key, 138) || flow_has_port(key, 139)) return "netbios";
-    if (flow_has_port(key, 445)) return "smb";
-    if (flow_has_port(key, 2049)) return "nfs";
-    if (flow_has_port(key, 3260)) return "iscsi";
-    if (flow_has_port(key, 3306)) return "mysql";
-    if (flow_has_port(key, 5432)) return "postgres";
-    if (flow_has_port(key, 1433) || flow_has_port(key, 1434)) return "mssql";
-    if (flow_has_port(key, 1521)) return "oracle";
-    if (flow_has_port(key, 9042)) return "cassandra";
-    if (flow_has_port(key, 26257)) return "cockroachdb";
-    if (flow_has_port(key, 8123) || flow_has_port(key, 9000) || flow_has_port(key, 9004) ||
-        flow_has_port(key, 9005) || flow_has_port(key, 9440)) return "clickhouse";
-    if (flow_has_port(key, 6379)) return "redis";
-    if (flow_has_port(key, 27017) || flow_has_port(key, 27018) || flow_has_port(key, 27019)) return "mongodb";
-    if (flow_has_port(key, 11211)) return "memcached";
-    if (flow_has_port(key, 5672) || flow_has_port(key, 5671)) return "amqp";
-    if (flow_has_port(key, 15672) || flow_has_port(key, 15671)) return "rabbitmq_mgmt";
-    if (flow_has_port(key, 1883) || flow_has_port(key, 8883)) return "mqtt";
-    if (flow_has_port(key, 9092)) return "kafka";
-    if (flow_has_port(key, 2181)) return "zookeeper";
-    if (flow_has_port(key, 2379) || flow_has_port(key, 2380)) return "etcd";
-    if (flow_has_port(key, 2375) || flow_has_port(key, 2376)) return "docker_api";
-    if (flow_has_port(key, 6443)) return "k8s_api";
-    if (flow_has_port(key, 10250)) return "kubelet";
-    if (flow_has_port(key, 8500) || flow_has_port(key, 8502) || flow_has_port(key, 8600)) return "consul";
-    if (flow_has_port(key, 8200) || flow_has_port(key, 8201)) return "vault";
-    if (flow_has_port(key, 4646) || flow_has_port(key, 4647) || flow_has_port(key, 4648)) return "nomad";
-    if (flow_has_port(key, 9200) || flow_has_port(key, 9300)) return "elasticsearch";
-    if (flow_has_port(key, 5601)) return "kibana";
-    if (flow_has_port(key, 9090)) return "prometheus";
-    if (flow_has_port(key, 9093)) return "alertmanager";
-    if (flow_has_port(key, 9100)) return "node_exporter";
-    if (flow_has_port(key, 3000)) return "grafana";
-    if (flow_has_port(key, 3100)) return "loki";
-    if (flow_has_port(key, 5044)) return "logstash";
-    if (flow_has_port(key, 24224)) return "fluentd";
-    if (flow_has_port(key, 4317) || flow_has_port(key, 4318)) return "otlp";
-    if (flow_has_port(key, 6831) || flow_has_port(key, 6832) || flow_has_port(key, 14250) ||
-        flow_has_port(key, 14268) || flow_has_port(key, 16686)) return "tracing";
-    if (flow_has_port(key, 8086)) return "influxdb";
-    if (flow_has_port(key, 8125)) return "statsd";
-    if (flow_has_port(key, 161) || flow_has_port(key, 162)) return "snmp";
-    if (flow_has_port(key, 514) || flow_has_port(key, 6514)) return "syslog";
-    if (flow_has_port(key, 631)) return "ipp";
-    if (flow_has_port(key, 554)) return "rtsp";
-    if (flow_has_port(key, 3389)) return "rdp";
-    if (flow_has_port(key, 5900)) return "vnc";
-    if (flow_has_port(key, 5060) || flow_has_port(key, 5061)) return "sip";
-    if (flow_has_port(key, 500) || flow_has_port(key, 4500)) return "ipsec";
-    if (flow_has_port(key, 1194)) return "openvpn";
-    if (flow_has_port(key, 1701)) return "l2tp";
-    if (flow_has_port(key, 1723)) return "pptp";
-    if (flow_has_port(key, 51820) || flow_has_port(key, 51821)) return "wireguard";
-    if (flow_has_port(key, 4789)) return "vxlan";
-    if (flow_has_port(key, 6081)) return "geneve";
-    if (flow_has_port(key, 179)) return "bgp";
+    port_class = classify_by_port_rules(key);
+    if (port_class) return port_class;
     return "other";
 }
 
@@ -568,11 +685,60 @@ static int run_selftest(void) {
     key5.dst_port = 8123;
 
     flow_key_t key6 = {0};
+    flow_key_t key7 = {0};
+    flow_key_t key8 = {0};
+    flow_key_t key9 = {0};
+    flow_key_t key10 = {0};
+    flow_key_t key11 = {0};
+    flow_key_t key12 = {0};
+    flow_key_t key13 = {0};
     snprintf(key6.src_ip, sizeof(key6.src_ip), "10.0.0.50");
     snprintf(key6.dst_ip, sizeof(key6.dst_ip), "8.8.8.8");
     key6.proto = IPPROTO_UDP;
     key6.src_port = 50124;
     key6.dst_port = 443;
+
+    snprintf(key7.src_ip, sizeof(key7.src_ip), "10.0.0.70");
+    snprintf(key7.dst_ip, sizeof(key7.dst_ip), "10.0.0.71");
+    key7.proto = IPPROTO_UDP;
+    key7.src_port = 50000;
+    key7.dst_port = 65100;
+
+    snprintf(key8.src_ip, sizeof(key8.src_ip), "10.0.0.72");
+    snprintf(key8.dst_ip, sizeof(key8.dst_ip), "10.0.0.73");
+    key8.proto = IPPROTO_TCP;
+    key8.src_port = 40000;
+    key8.dst_port = 10051;
+
+    snprintf(key9.src_ip, sizeof(key9.src_ip), "10.0.0.74");
+    snprintf(key9.dst_ip, sizeof(key9.dst_ip), "10.0.0.75");
+    key9.proto = IPPROTO_UDP;
+    key9.src_port = 40001;
+    key9.dst_port = 3784;
+
+    snprintf(key10.src_ip, sizeof(key10.src_ip), "10.0.0.76");
+    snprintf(key10.dst_ip, sizeof(key10.dst_ip), "10.0.0.77");
+    key10.proto = IPPROTO_TCP;
+    key10.src_port = 40002;
+    key10.dst_port = 2604;
+
+    snprintf(key11.src_ip, sizeof(key11.src_ip), "10.0.0.78");
+    snprintf(key11.dst_ip, sizeof(key11.dst_ip), "10.0.0.79");
+    key11.proto = IPPROTO_TCP;
+    key11.src_port = 40003;
+    key11.dst_port = 5666;
+
+    snprintf(key12.src_ip, sizeof(key12.src_ip), "10.0.0.80");
+    snprintf(key12.dst_ip, sizeof(key12.dst_ip), "10.0.0.81");
+    key12.proto = IPPROTO_TCP;
+    key12.src_port = 40004;
+    key12.dst_port = 4505;
+
+    snprintf(key13.src_ip, sizeof(key13.src_ip), "10.0.0.82");
+    snprintf(key13.dst_ip, sizeof(key13.dst_ip), "10.0.0.83");
+    key13.proto = IPPROTO_TCP;
+    key13.src_port = 40005;
+    key13.dst_port = 20048;
 
     if (!parser_extract_tls_sni(tls_client_hello, sizeof(tls_client_hello), sni, sizeof(sni))) {
         fprintf(stderr, "selftest: failed to parse TLS SNI\n");
@@ -594,8 +760,8 @@ static int run_selftest(void) {
         fprintf(stderr, "selftest: expected postgres class\n");
         return 1;
     }
-    if (strcmp(classify_flow(&key4, "", ""), "ssdp") != 0) {
-        fprintf(stderr, "selftest: expected ssdp class\n");
+    if (strcmp(classify_flow(&key4, "", ""), "multicast") != 0) {
+        fprintf(stderr, "selftest: expected multicast class\n");
         return 1;
     }
     if (strcmp(classify_flow(&key5, "", ""), "clickhouse") != 0) {
@@ -604,6 +770,34 @@ static int run_selftest(void) {
     }
     if (strcmp(classify_flow(&key6, "", ""), "quic") != 0) {
         fprintf(stderr, "selftest: expected quic class\n");
+        return 1;
+    }
+    if (strcmp(classify_flow(&key7, "", ""), "wireguard") != 0) {
+        fprintf(stderr, "selftest: expected wireguard class\n");
+        return 1;
+    }
+    if (strcmp(classify_flow(&key8, "", ""), "zabbix") != 0) {
+        fprintf(stderr, "selftest: expected zabbix class\n");
+        return 1;
+    }
+    if (strcmp(classify_flow(&key9, "", ""), "bfdd") != 0) {
+        fprintf(stderr, "selftest: expected bfdd class\n");
+        return 1;
+    }
+    if (strcmp(classify_flow(&key10, "", ""), "ospfd") != 0) {
+        fprintf(stderr, "selftest: expected ospfd class\n");
+        return 1;
+    }
+    if (strcmp(classify_flow(&key11, "", ""), "nrpe") != 0) {
+        fprintf(stderr, "selftest: expected nrpe class\n");
+        return 1;
+    }
+    if (strcmp(classify_flow(&key12, "", ""), "salt") != 0) {
+        fprintf(stderr, "selftest: expected salt class\n");
+        return 1;
+    }
+    if (strcmp(classify_flow(&key13, "", ""), "mountd") != 0) {
+        fprintf(stderr, "selftest: expected mountd class\n");
         return 1;
     }
 
