@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-EnvironmentFile=-/etc/if_flow/if_flow-clickhouse.env
+EnvironmentFile=-/opt/if_flow/deploy/systemd/if_flow-clickhouse.env
 WorkingDirectory=/opt/if_flow
 ExecStart=/usr/bin/env python3 /opt/if_flow/clickhouse_uploader/if_flow_clickhouse_uploader.py
 Restart=always

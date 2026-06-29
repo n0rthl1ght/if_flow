@@ -5,15 +5,20 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-EnvironmentFile=-/etc/if_flow/if_flow.env
+User=root
+Group=root
+EnvironmentFile=-/opt/if_flow/deploy/systemd/if_flow.env
 WorkingDirectory=/opt/if_flow
 ExecStart=/opt/if_flow/scripts/run_if_flow.sh
 Restart=always
 RestartSec=3
+KillMode=control-group
+TimeoutStopSec=10
 LimitMEMLOCK=infinity
-AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_BPF CAP_PERFMON
-CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_BPF CAP_PERFMON
-NoNewPrivileges=true
+LimitNOFILE=262144
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=if_flow
 
 [Install]
 WantedBy=multi-user.target
