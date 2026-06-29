@@ -6,15 +6,7 @@ Documentation:
 
 - [README.ru.md](README.ru.md) - detailed documentation in Russian
 - [README.en.md](README.en.md) - detailed documentation in English
-- [clickhouse_uploader/README.md](clickhouse_uploader/README.md) - ClickHouse uploader, Docker stack, Grafana and Superset
-
-Visualization choice:
-
-| Need | Recommended tool |
-| --- | --- |
-| Production monitoring, time-series, large traffic volume | `Grafana` |
-| Ad-hoc analysis, SQL exploration, investigations | `Superset` |
-| Only one UI and not sure where to start | `Grafana` |
+- [clickhouse_uploader/README.md](clickhouse_uploader/README.md) - ClickHouse uploader, Docker stack and Grafana
 
 Quick start:
 

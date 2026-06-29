@@ -15,7 +15,7 @@
 - classifies traffic into practical operational classes
 - writes local `JSONL`
 - uploads records to `ClickHouse` using a separate uploader
-- includes systemd units plus Grafana and Superset assets
+- includes systemd units plus Grafana assets
 
 The current prototype covers:
 
@@ -50,7 +50,7 @@ The current prototype covers:
 - `src/writer_jsonl.c` - JSONL output and rotation
 - `src/config.c` - CLI parsing and defaults
 - `bpf/if_flow.bpf.c` - eBPF programs
-- `clickhouse_uploader/` - uploader, schema, Docker stack, Grafana, Superset
+- `clickhouse_uploader/` - uploader, schema, Docker stack, Grafana
 - `deploy/systemd/` - systemd units and environment templates
 - `scripts/` - helper scripts
 - `tests/` - self-tests and smoke tests
@@ -172,6 +172,11 @@ Ready-to-use files are available in [deploy/systemd](deploy/systemd):
 - [if_flow.env.example](deploy/systemd/if_flow.env.example)
 - [if_flow-clickhouse.env.example](deploy/systemd/if_flow-clickhouse.env.example)
 
+By default, the unit files expect environment files here:
+
+- `/opt/of_flow/deploy/systemd/if_flow.env`
+- `/opt/of_flow/deploy/systemd/if_flow-clickhouse.env`
+
 Install:
 
 ```bash
@@ -194,7 +199,7 @@ Example:
 bash ./scripts/if_flow_archive.sh --base-path /opt/if_flow/if_flow.jsonl --retention-days 7
 ```
 
-## ClickHouse, Grafana, Superset
+## ClickHouse and Grafana
 
 Uploader and visualization assets live in:
 
@@ -206,30 +211,18 @@ That directory contains:
 - schema with TTL
 - Docker Compose stack
 - Grafana provisioning
-- starter SQL and dashboards for Superset and Grafana
+- starter SQL and dashboards for Grafana
 
-### How to choose between Grafana and Superset
+### Why Grafana is the default UI here
 
-For `if_flow`, these tools play different roles, so the right choice depends on the workflow.
+For `if_flow`, `Grafana` is the default and recommended visualization layer.
 
-Choose `Grafana` when:
+It is the best fit when:
 
 - you need the main production dashboard
 - the dataset is already large or expected to grow quickly
 - minute-based time-series monitoring is the priority
 - you want fast `top N` panels for `src_ip`, `dst_ip`, `class`, or `process`
 - the main goal is continuous operational monitoring
-
-Choose `Superset` when:
-
-- you need ad-hoc analysis
-- SQL-first exploration is important
-- the main workflow is investigation rather than continuous monitoring
-- you want custom tables, views, and one-off analytical slices
-
-Practical recommendation for this project:
-
-- use `Grafana` as the main monitoring interface
-- use `Superset` as the secondary analytical interface
 
 If you only want one UI, `Grafana` is usually the correct starting point for `if_flow`.

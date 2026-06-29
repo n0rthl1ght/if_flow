@@ -18,7 +18,7 @@
 - запись в локальный `JSONL`
 - выгрузка в `ClickHouse` отдельным uploader-ом
 - готовые systemd unit-файлы
-- стартовый стек для визуализации через Grafana и Superset
+- стартовый стек для визуализации через Grafana
 
 
 Текущий прототип покрывает:
@@ -54,7 +54,7 @@
 - `src/writer_jsonl.c` - JSONL writer, day rotation, size rotation
 - `src/config.c` - CLI и значения по умолчанию
 - `bpf/if_flow.bpf.c` - eBPF programs
-- `clickhouse_uploader/` - uploader, schema, Docker stack, Grafana, Superset
+- `clickhouse_uploader/` - uploader, schema, Docker stack, Grafana
 - `deploy/systemd/` - готовые unit-файлы и env templates
 - `scripts/` - helper scripts для запуска и установки
 - `tests/` - self-tests и smoke tests
@@ -176,6 +176,11 @@ make test
 - [if_flow.env.example](deploy/systemd/if_flow.env.example)
 - [if_flow-clickhouse.env.example](deploy/systemd/if_flow-clickhouse.env.example)
 
+По умолчанию unit-файлы ожидают env-файлы здесь:
+
+- `/opt/of_flow/deploy/systemd/if_flow.env`
+- `/opt/of_flow/deploy/systemd/if_flow-clickhouse.env`
+
 Установка:
 
 ```bash
@@ -203,7 +208,7 @@ sudo systemctl enable --now if_flow-archive.timer
 bash ./scripts/if_flow_archive.sh --base-path /opt/if_flow/if_flow.jsonl --retention-days 7
 ```
 
-## ClickHouse, Grafana, Superset
+## ClickHouse и Grafana
 
 Вся логика выгрузки и визуализации вынесена в отдельную папку:
 
@@ -215,13 +220,13 @@ bash ./scripts/if_flow_archive.sh --base-path /opt/if_flow/if_flow.jsonl --reten
 - `schema.sql` с `TTL`
 - Docker Compose stack
 - provisioning для Grafana
-- стартовые SQL и dashboards для Superset и Grafana
+- стартовые SQL и dashboard для Grafana
 
-### Как правильно выбрать Grafana или Superset
+### Почему основной UI здесь именно Grafana
 
-Для `if_flow` это не одинаковые роли, и выбирать лучше по сценарию использования.
+Для `if_flow` именно `Grafana` является основным и рекомендуемым интерфейсом.
 
-Выбирайте `Grafana`, если:
+Она лучше подходит, если:
 
 - нужен основной production dashboard
 - данные уже большие или ожидается быстрый рост объема
@@ -229,17 +234,4 @@ bash ./scripts/if_flow_archive.sh --base-path /opt/if_flow/if_flow.jsonl --reten
 - нужны быстрые панели `top N` по `src_ip`, `dst_ip`, `class`, `process`
 - нужен постоянный operational monitoring
 
-Выбирайте `Superset`, если:
-
-- нужен ad-hoc analysis
-- важны SQL-запросы и исследовательская аналитика
-- основной сценарий это расследование, а не постоянный мониторинг
-- нужно строить кастомные таблицы, views и разовые срезы
-
-Практическая рекомендация для этого проекта:
-
-- `Grafana` использовать как основной интерфейс мониторинга
-- `Superset` использовать как дополнительный аналитический инструмент
-
-Если нужен только один UI, для `if_flow` почти всегда правильнее начинать с `Grafana`.
-
+Если нужен только один UI, для `if_flow` почти всегда правильнее начинать именно с `Grafana`.

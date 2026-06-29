@@ -6,7 +6,7 @@ PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 DESTDIR="${DESTDIR:-}"
 PREFIX="${PREFIX:-/opt/if_flow}"
-ETC_DIR="${ETC_DIR:-/etc/if_flow}"
+ETC_DIR="${ETC_DIR:-/opt/if_flow/deploy/systemd}"
 SYSTEMD_DIR="${SYSTEMD_DIR:-/etc/systemd/system}"
 INSTALL_ENV=1
 RELOAD_SYSTEMD=0
@@ -17,7 +17,7 @@ usage: install_systemd_layout.sh [options]
 
 Options:
   --prefix PATH         Install project files under PATH (default: /opt/if_flow)
-  --etc-dir PATH        Install env file under PATH (default: /etc/if_flow)
+  --etc-dir PATH        Install env file under PATH (default: /opt/of_flow/deploy/systemd)
   --systemd-dir PATH    Install unit files under PATH (default: /etc/systemd/system)
   --no-env              Do not install the example env file
   --reload-systemd      Run systemctl daemon-reload after copying units
@@ -95,15 +95,9 @@ copy_file "${PROJECT_DIR}/clickhouse_uploader/schema.sql" "${TARGET_PREFIX}/clic
 copy_file "${PROJECT_DIR}/clickhouse_uploader/README.md" "${TARGET_PREFIX}/clickhouse_uploader/README.md"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/docker-compose.yml" "${TARGET_PREFIX}/clickhouse_uploader/docker-compose.yml"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/.env.example" "${TARGET_PREFIX}/clickhouse_uploader/.env.example"
-copy_file "${PROJECT_DIR}/clickhouse_uploader/Dockerfile.superset" "${TARGET_PREFIX}/clickhouse_uploader/Dockerfile.superset"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/run_uploader_once.sh" "${TARGET_PREFIX}/clickhouse_uploader/run_uploader_once.sh"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/run_uploader_loop.sh" "${TARGET_PREFIX}/clickhouse_uploader/run_uploader_loop.sh"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/if_flow-clickhouse.env.example" "${TARGET_PREFIX}/clickhouse_uploader/if_flow-clickhouse.env.example"
-copy_file "${PROJECT_DIR}/clickhouse_uploader/superset/superset_config.py" "${TARGET_PREFIX}/clickhouse_uploader/superset/superset_config.py"
-copy_file "${PROJECT_DIR}/clickhouse_uploader/superset/if_flow_views.sql" "${TARGET_PREFIX}/clickhouse_uploader/superset/if_flow_views.sql"
-copy_file "${PROJECT_DIR}/clickhouse_uploader/superset/dashboard_queries.sql" "${TARGET_PREFIX}/clickhouse_uploader/superset/dashboard_queries.sql"
-copy_file "${PROJECT_DIR}/clickhouse_uploader/superset/investigation_queries.sql" "${TARGET_PREFIX}/clickhouse_uploader/superset/investigation_queries.sql"
-copy_file "${PROJECT_DIR}/clickhouse_uploader/superset/WIDGETS.md" "${TARGET_PREFIX}/clickhouse_uploader/superset/WIDGETS.md"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/provisioning/datasources/clickhouse.yaml" "${TARGET_PREFIX}/clickhouse_uploader/grafana/provisioning/datasources/clickhouse.yaml"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/provisioning/dashboards/default.yaml" "${TARGET_PREFIX}/clickhouse_uploader/grafana/provisioning/dashboards/default.yaml"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/README.md" "${TARGET_PREFIX}/clickhouse_uploader/grafana/README.md"
@@ -111,6 +105,7 @@ copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/if_flow_dashboard.json" "$
 copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/queries/traffic_by_minute.sql" "${TARGET_PREFIX}/clickhouse_uploader/grafana/queries/traffic_by_minute.sql"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/queries/traffic_by_direction.sql" "${TARGET_PREFIX}/clickhouse_uploader/grafana/queries/traffic_by_direction.sql"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/queries/top_classes.sql" "${TARGET_PREFIX}/clickhouse_uploader/grafana/queries/top_classes.sql"
+copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/queries/class_breakdown.sql" "${TARGET_PREFIX}/clickhouse_uploader/grafana/queries/class_breakdown.sql"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/queries/top_pairs.sql" "${TARGET_PREFIX}/clickhouse_uploader/grafana/queries/top_pairs.sql"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/queries/top_processes.sql" "${TARGET_PREFIX}/clickhouse_uploader/grafana/queries/top_processes.sql"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/queries/tcp_without_syn.sql" "${TARGET_PREFIX}/clickhouse_uploader/grafana/queries/tcp_without_syn.sql"

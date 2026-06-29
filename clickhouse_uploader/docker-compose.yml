@@ -20,58 +20,6 @@ services:
         soft: 262144
         hard: 262144
 
-  superset-redis:
-    image: redis:7
-    container_name: if_flow_superset_redis
-    restart: unless-stopped
-    environment:
-      TZ: ${TZ:-Europe/Moscow}
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 5s
-
-  superset:
-    build:
-      context: .
-      dockerfile: Dockerfile.superset
-    container_name: if_flow_superset
-    restart: unless-stopped
-    depends_on:
-      superset-redis:
-        condition: service_healthy
-      clickhouse:
-        condition: service_started
-    environment:
-      TZ: ${TZ:-Europe/Moscow}
-      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-change_me_superset_secret_key}
-      SUPERSET_ADMIN_USERNAME: ${SUPERSET_ADMIN_USERNAME:-admin}
-      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:-change_me_superset_admin}
-      SUPERSET_ADMIN_FIRSTNAME: ${SUPERSET_ADMIN_FIRSTNAME:-if_flow}
-      SUPERSET_ADMIN_LASTNAME: ${SUPERSET_ADMIN_LASTNAME:-admin}
-      SUPERSET_ADMIN_EMAIL: ${SUPERSET_ADMIN_EMAIL:-admin@example.local}
-      SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
-      SUPERSET_HOME: /app/superset_home
-      REDIS_HOST: superset-redis
-      REDIS_PORT: 6379
-    ports:
-      - "${SUPERSET_PORT:-8088}:8088"
-    volumes:
-      - superset_home:/app/superset_home
-      - ./superset/superset_config.py:/app/pythonpath/superset_config.py:ro
-    command: >
-      /bin/sh -c "
-      superset db upgrade &&
-      (superset fab create-admin --username \"$${SUPERSET_ADMIN_USERNAME}\" --firstname \"$${SUPERSET_ADMIN_FIRSTNAME}\" --lastname \"$${SUPERSET_ADMIN_LASTNAME}\" --email \"$${SUPERSET_ADMIN_EMAIL}\" --password \"$${SUPERSET_ADMIN_PASSWORD}\" || true) &&
-      superset init &&
-      /usr/bin/run-server.sh
-      "
-
   grafana:
     image: grafana/grafana-oss:latest
     container_name: if_flow_grafana
@@ -97,4 +45,3 @@ services:
 volumes:
   clickhouse_data:
   grafana_data:
-  superset_home:
