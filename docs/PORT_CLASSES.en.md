@@ -8,6 +8,24 @@ Classification in `if_flow` is heuristic: the agent reads `src_port` and `dst_po
 
 Below is the current built-in `class -> ports` map.
 
+## ICMP and ICMPv6
+
+For `ICMP` and `ICMPv6`, the agent does not use ports: `src_port=0`, `dst_port=0`, and the class is derived from `type/code`.
+
+- `icmp_echo`
+- `icmp_echo_reply`
+- `icmp_unreachable`
+- `icmp_time_exceeded`
+- `icmp_redirect`
+- `icmpv6_nd`
+- `icmpv6_router_advert`
+- `icmpv6_echo`
+
+For other messages, a more general fallback is used:
+
+- `icmp`
+- `icmpv6`
+
 ## Core network services
 
 - `mdns`: `5353`

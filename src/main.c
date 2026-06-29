@@ -7,6 +7,8 @@
 #include <net/ethernet.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
+#include <netinet/icmp6.h>
+#include <netinet/ip_icmp.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #if __has_include(<pcap.h>)
@@ -305,6 +307,43 @@ static const char *classify_by_port_rules(const flow_key_t *key) {
     return NULL;
 }
 
+static const char *classify_icmp(uint8_t proto, uint8_t type, uint8_t code) {
+    (void)code;
+    if (proto == IPPROTO_ICMP) {
+        switch (type) {
+            case ICMP_ECHO:
+                return "icmp_echo";
+            case ICMP_ECHOREPLY:
+                return "icmp_echo_reply";
+            case ICMP_UNREACH:
+                return "icmp_unreachable";
+            case ICMP_TIMXCEED:
+                return "icmp_time_exceeded";
+            case ICMP_REDIRECT:
+                return "icmp_redirect";
+            default:
+                return "icmp";
+        }
+    }
+
+    if (proto == IPPROTO_ICMPV6) {
+        switch (type) {
+            case ND_ROUTER_ADVERT:
+                return "icmpv6_router_advert";
+            case ND_NEIGHBOR_SOLICIT:
+            case ND_NEIGHBOR_ADVERT:
+                return "icmpv6_nd";
+            case ICMP6_ECHO_REQUEST:
+            case ICMP6_ECHO_REPLY:
+                return "icmpv6_echo";
+            default:
+                return "icmpv6";
+        }
+    }
+
+    return NULL;
+}
+
 static const char *classify_by_early_port_rules(const flow_key_t *key) {
     static const uint16_t early_ports[] = {5353, 5355, 53, 853, 123};
     size_t i;
@@ -503,6 +542,8 @@ static void packet_handler(u_char *user, const struct pcap_pkthdr *hdr, const u_
     const char *class_tag = "other";
     attr_source_t attr_source = ATTR_SRC_UNKNOWN;
     uint8_t proto = 0;
+    uint8_t icmp_type = 0;
+    uint8_t icmp_code = 0;
     size_t l4ofs = 0;
     const uint8_t *payload = NULL;
     size_t payload_len = 0;
@@ -545,13 +586,11 @@ static void packet_handler(u_char *user, const struct pcap_pkthdr *hdr, const u_
         l4ofs = sizeof(struct ip6_hdr);
     }
 
-    if (!(proto == IPPROTO_TCP || proto == IPPROTO_UDP)) return;
-    if (l3len < l4ofs + 8) return;
-
     key.proto = proto;
     if (proto == IPPROTO_TCP) {
         const struct tcphdr *tcp;
         size_t doff;
+        if (l3len < l4ofs + 8) return;
         if (l3len < l4ofs + sizeof(struct tcphdr)) return;
         tcp = (const struct tcphdr *)(l3 + l4ofs);
         key.src_port = ntohs(tcp->th_sport);
@@ -562,14 +601,37 @@ static void packet_handler(u_char *user, const struct pcap_pkthdr *hdr, const u_
         payload_len = l3len - l4ofs - doff;
         if ((tcp->th_flags & TH_SYN) && !(tcp->th_flags & TH_ACK)) new_connection = 1;
     } else {
-        const struct udphdr *udp;
-        if (l3len < l4ofs + sizeof(struct udphdr)) return;
-        udp = (const struct udphdr *)(l3 + l4ofs);
-        key.src_port = ntohs(udp->uh_sport);
-        key.dst_port = ntohs(udp->uh_dport);
-        payload = l3 + l4ofs + sizeof(struct udphdr);
-        payload_len = l3len - l4ofs - sizeof(struct udphdr);
-        new_connection = 1;
+        if (proto == IPPROTO_UDP) {
+            const struct udphdr *udp;
+            if (l3len < l4ofs + 8) return;
+            if (l3len < l4ofs + sizeof(struct udphdr)) return;
+            udp = (const struct udphdr *)(l3 + l4ofs);
+            key.src_port = ntohs(udp->uh_sport);
+            key.dst_port = ntohs(udp->uh_dport);
+            payload = l3 + l4ofs + sizeof(struct udphdr);
+            payload_len = l3len - l4ofs - sizeof(struct udphdr);
+            new_connection = 1;
+        } else if (proto == IPPROTO_ICMP) {
+            const struct icmphdr *icmp4;
+            if (l3len < l4ofs + sizeof(struct icmphdr)) return;
+            icmp4 = (const struct icmphdr *)(l3 + l4ofs);
+            icmp_type = icmp4->type;
+            icmp_code = icmp4->code;
+            key.src_port = 0;
+            key.dst_port = 0;
+            new_connection = 1;
+        } else if (proto == IPPROTO_ICMPV6) {
+            const struct icmp6_hdr *icmp6;
+            if (l3len < l4ofs + sizeof(struct icmp6_hdr)) return;
+            icmp6 = (const struct icmp6_hdr *)(l3 + l4ofs);
+            icmp_type = icmp6->icmp6_type;
+            icmp_code = icmp6->icmp6_code;
+            key.src_port = 0;
+            key.dst_port = 0;
+            new_connection = 1;
+        } else {
+            return;
+        }
     }
 
     /*
@@ -597,7 +659,12 @@ static void packet_handler(u_char *user, const struct pcap_pkthdr *hdr, const u_
     } else if (resolver_lookup(&g_app.resolver, &key, &pid, process, sizeof(process), cmdline, sizeof(cmdline), workload, sizeof(workload))) {
         attr_source = ATTR_SRC_PROC;
     }
-    class_tag = classify_flow(&key, sni, host);
+    if (proto == IPPROTO_ICMP || proto == IPPROTO_ICMPV6) {
+        class_tag = classify_icmp(proto, icmp_type, icmp_code);
+        if (!class_tag) class_tag = "other";
+    } else {
+        class_tag = classify_flow(&key, sni, host);
+    }
     /*
      * The flow table owns minute-bucket aggregation. From this point on we only
      * retain counters and derived metadata, not the raw packet contents.
@@ -692,6 +759,9 @@ static int run_selftest(void) {
     flow_key_t key11 = {0};
     flow_key_t key12 = {0};
     flow_key_t key13 = {0};
+    flow_key_t key14 = {0};
+    flow_key_t key15 = {0};
+    flow_key_t key16 = {0};
     snprintf(key6.src_ip, sizeof(key6.src_ip), "10.0.0.50");
     snprintf(key6.dst_ip, sizeof(key6.dst_ip), "8.8.8.8");
     key6.proto = IPPROTO_UDP;
@@ -739,6 +809,18 @@ static int run_selftest(void) {
     key13.proto = IPPROTO_TCP;
     key13.src_port = 40005;
     key13.dst_port = 20048;
+
+    snprintf(key14.src_ip, sizeof(key14.src_ip), "10.0.0.84");
+    snprintf(key14.dst_ip, sizeof(key14.dst_ip), "10.0.0.85");
+    key14.proto = IPPROTO_ICMP;
+
+    snprintf(key15.src_ip, sizeof(key15.src_ip), "fe80::1");
+    snprintf(key15.dst_ip, sizeof(key15.dst_ip), "ff02::1");
+    key15.proto = IPPROTO_ICMPV6;
+
+    snprintf(key16.src_ip, sizeof(key16.src_ip), "fe80::2");
+    snprintf(key16.dst_ip, sizeof(key16.dst_ip), "ff02::2");
+    key16.proto = IPPROTO_ICMPV6;
 
     if (!parser_extract_tls_sni(tls_client_hello, sizeof(tls_client_hello), sni, sizeof(sni))) {
         fprintf(stderr, "selftest: failed to parse TLS SNI\n");
@@ -798,6 +880,26 @@ static int run_selftest(void) {
     }
     if (strcmp(classify_flow(&key13, "", ""), "mountd") != 0) {
         fprintf(stderr, "selftest: expected mountd class\n");
+        return 1;
+    }
+    if (strcmp(classify_icmp(IPPROTO_ICMP, ICMP_ECHO, 0), "icmp_echo") != 0) {
+        fprintf(stderr, "selftest: expected icmp_echo class\n");
+        return 1;
+    }
+    if (strcmp(classify_icmp(IPPROTO_ICMP, ICMP_UNREACH, 1), "icmp_unreachable") != 0) {
+        fprintf(stderr, "selftest: expected icmp_unreachable class\n");
+        return 1;
+    }
+    if (strcmp(classify_icmp(IPPROTO_ICMPV6, ND_NEIGHBOR_SOLICIT, 0), "icmpv6_nd") != 0) {
+        fprintf(stderr, "selftest: expected icmpv6_nd class\n");
+        return 1;
+    }
+    if (strcmp(classify_icmp(IPPROTO_ICMPV6, ND_ROUTER_ADVERT, 0), "icmpv6_router_advert") != 0) {
+        fprintf(stderr, "selftest: expected icmpv6_router_advert class\n");
+        return 1;
+    }
+    if (strcmp(classify_icmp(IPPROTO_ICMPV6, ICMP6_ECHO_REPLY, 0), "icmpv6_echo") != 0) {
+        fprintf(stderr, "selftest: expected icmpv6_echo class\n");
         return 1;
     }
 

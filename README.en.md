@@ -153,6 +153,14 @@ Additional enrichment:
 - `sni`
 - `host_name`
 
+## Classes and Ports
+
+The full `class -> ports` map is available in a separate document:
+
+- [docs/PORT_CLASSES.en.md](docs/PORT_CLASSES.en.md)
+
+That file also captures the current heuristics, priorities, active infrastructure port mappings, and `ICMP/ICMPv6` classes derived from `type/code`.
+
 ## Current limits
 
 - only `TCP/UDP` are tracked today

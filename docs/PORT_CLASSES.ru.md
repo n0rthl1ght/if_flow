@@ -8,6 +8,24 @@
 
 Ниже перечислены основные портовые сопоставления, которые сейчас зашиты в код.
 
+## ICMP и ICMPv6
+
+Для `ICMP` и `ICMPv6` агент не использует порты: `src_port=0`, `dst_port=0`, а класс определяется по `type/code`.
+
+- `icmp_echo`
+- `icmp_echo_reply`
+- `icmp_unreachable`
+- `icmp_time_exceeded`
+- `icmp_redirect`
+- `icmpv6_nd`
+- `icmpv6_router_advert`
+- `icmpv6_echo`
+
+Для прочих сообщений используется более общий fallback:
+
+- `icmp`
+- `icmpv6`
+
 ## Базовые сетевые сервисы
 
 - `mdns`: `5353`
