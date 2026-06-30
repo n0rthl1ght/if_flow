@@ -65,4 +65,7 @@ test: $(TARGET)
 install-systemd: all
 	bash ./scripts/install_systemd_layout.sh
 
-.PHONY: all clean test install-systemd
+bootstrap-systemd:
+	sudo bash ./scripts/install_systemd_layout.sh --install-build-deps --build-all --reload-systemd
+
+.PHONY: all clean test install-systemd bootstrap-systemd

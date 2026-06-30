@@ -5,11 +5,19 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+User=root
+Group=root
 EnvironmentFile=-/opt/if_flow/deploy/systemd/if_flow-clickhouse.env
+Environment=IF_FLOW_CLICKHOUSE_ENV=/opt/if_flow/deploy/systemd/if_flow-clickhouse.env
 WorkingDirectory=/opt/if_flow
-ExecStart=/usr/bin/env python3 /opt/if_flow/clickhouse_uploader/if_flow_clickhouse_uploader.py
+ExecStart=/usr/bin/env bash /opt/if_flow/clickhouse_uploader/run_uploader_loop.sh
 Restart=always
 RestartSec=5
+KillMode=control-group
+TimeoutStopSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=if_flow-clickhouse-uploader
 
 [Install]
 WantedBy=multi-user.target

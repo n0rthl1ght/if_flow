@@ -186,16 +186,43 @@ make test
 
 По умолчанию unit-файлы ожидают env-файлы здесь:
 
-- `/opt/of_flow/deploy/systemd/if_flow.env`
-- `/opt/of_flow/deploy/systemd/if_flow-clickhouse.env`
+- `/opt/if_flow/deploy/systemd/if_flow.env`
+- `/opt/if_flow/deploy/systemd/if_flow-clickhouse.env`
 
 Установка:
 
 ```bash
 sudo make install-systemd
+sudo editor /opt/if_flow/deploy/systemd/if_flow.env
+sudo editor /opt/if_flow/deploy/systemd/if_flow-clickhouse.env
 sudo systemctl enable --now if_flow.service
 sudo systemctl enable --now if_flow-archive.timer
+sudo systemctl enable --now if_flow-clickhouse-uploader.service
 ```
+
+Bootstrap-режим для нового хоста:
+
+```bash
+sudo make bootstrap-systemd
+```
+
+Этот режим:
+
+- ставит build/runtime зависимости через `apt-get` или `dnf`
+- собирает `if_flow` и `bpf/if_flow.bpf.o`
+- раскладывает файлы в `/opt/if_flow`
+- копирует unit-файлы в `/etc/systemd/system`
+- выполняет `systemctl daemon-reload`
+
+Практический порядок для хоста:
+
+1. На уже подготовленном хосте: `make` и `sudo make install-systemd`
+2. На новом чистом хосте: `sudo make bootstrap-systemd`
+3. Заполнить env-файлы в `/opt/if_flow/deploy/systemd/`
+4. Запустить `if_flow.service`
+5. При необходимости включить `if_flow-clickhouse-uploader.service`
+
+`if_flow-clickhouse-uploader.service` теперь запускает тот же wrapper-скрипт, что и ручной loop-run, и использует явный env-файл `/opt/if_flow/deploy/systemd/if_flow-clickhouse.env`. Это убирает расхождение между ручным запуском и systemd-запуском.
 
 Для production-профиля на плотном потоке обычно достаточно:
 

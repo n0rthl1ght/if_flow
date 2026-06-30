@@ -182,16 +182,43 @@ Ready-to-use files are available in [deploy/systemd](deploy/systemd):
 
 By default, the unit files expect environment files here:
 
-- `/opt/of_flow/deploy/systemd/if_flow.env`
-- `/opt/of_flow/deploy/systemd/if_flow-clickhouse.env`
+- `/opt/if_flow/deploy/systemd/if_flow.env`
+- `/opt/if_flow/deploy/systemd/if_flow-clickhouse.env`
 
 Install:
 
 ```bash
 sudo make install-systemd
+sudo editor /opt/if_flow/deploy/systemd/if_flow.env
+sudo editor /opt/if_flow/deploy/systemd/if_flow-clickhouse.env
 sudo systemctl enable --now if_flow.service
 sudo systemctl enable --now if_flow-archive.timer
+sudo systemctl enable --now if_flow-clickhouse-uploader.service
 ```
+
+Bootstrap mode for a fresh host:
+
+```bash
+sudo make bootstrap-systemd
+```
+
+That mode:
+
+- installs build/runtime dependencies through `apt-get` or `dnf`
+- builds `if_flow` and `bpf/if_flow.bpf.o`
+- installs files into `/opt/if_flow`
+- copies unit files into `/etc/systemd/system`
+- runs `systemctl daemon-reload`
+
+Practical host deployment flow:
+
+1. On a prepared host: run `make` and then `sudo make install-systemd`
+2. On a fresh host: run `sudo make bootstrap-systemd`
+3. Fill in the env files under `/opt/if_flow/deploy/systemd/`
+4. Start `if_flow.service`
+5. Enable `if_flow-clickhouse-uploader.service` when ClickHouse upload is needed
+
+`if_flow-clickhouse-uploader.service` now launches the same wrapper script used by the manual loop runner and reads the explicit env file `/opt/if_flow/deploy/systemd/if_flow-clickhouse.env`. This keeps manual and systemd behavior aligned.
 
 ## Archiving
 

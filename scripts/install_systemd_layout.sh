@@ -10,6 +10,8 @@ ETC_DIR="${ETC_DIR:-/opt/if_flow/deploy/systemd}"
 SYSTEMD_DIR="${SYSTEMD_DIR:-/etc/systemd/system}"
 INSTALL_ENV=1
 RELOAD_SYSTEMD=0
+INSTALL_BUILD_DEPS=0
+BUILD_MODE=""
 
 usage() {
     cat <<'EOF'
@@ -17,8 +19,11 @@ usage: install_systemd_layout.sh [options]
 
 Options:
   --prefix PATH         Install project files under PATH (default: /opt/if_flow)
-  --etc-dir PATH        Install env file under PATH (default: /opt/of_flow/deploy/systemd)
+  --etc-dir PATH        Install env file under PATH (default: /opt/if_flow/deploy/systemd)
   --systemd-dir PATH    Install unit files under PATH (default: /etc/systemd/system)
+  --install-build-deps  Install compiler/runtime dependencies for this host
+  --build-userspace     Build only the userspace binary before install
+  --build-all           Build userspace + BPF object before install
   --no-env              Do not install the example env file
   --reload-systemd      Run systemctl daemon-reload after copying units
   -h, --help            Show this help
@@ -32,15 +37,93 @@ log() {
     printf '[install] %s\n' "$*"
 }
 
+same_path() {
+    local left="$1"
+    local right="$2"
+    local left_real=""
+    local right_real=""
+
+    if ! command -v readlink >/dev/null 2>&1; then
+        return 1
+    fi
+
+    left_real="$(readlink -f "${left}" 2>/dev/null || true)"
+    right_real="$(readlink -f "${right}" 2>/dev/null || true)"
+
+    [[ -n "${left_real}" && -n "${right_real}" && "${left_real}" == "${right_real}" ]]
+}
+
+require_root_for_mutation() {
+    if [[ "${EUID}" -ne 0 ]]; then
+        echo "this operation requires root privileges" >&2
+        exit 1
+    fi
+}
+
+install_build_deps() {
+    require_root_for_mutation
+    if command -v apt-get >/dev/null 2>&1; then
+        log "installing build dependencies via apt-get"
+        apt-get update
+        apt-get install -y \
+            build-essential \
+            clang \
+            llvm \
+            bpftool \
+            libbpf-dev \
+            libpcap-dev \
+            libelf-dev \
+            zlib1g-dev \
+            pkg-config \
+            python3 \
+            make
+        return
+    fi
+
+    if command -v dnf >/dev/null 2>&1; then
+        log "installing build dependencies via dnf"
+        dnf install -y \
+            gcc \
+            make \
+            clang \
+            llvm \
+            bpftool \
+            libbpf-devel \
+            libpcap-devel \
+            elfutils-libelf-devel \
+            zlib-devel \
+            pkgconf-pkg-config \
+            python3
+        return
+    fi
+
+    echo "unsupported package manager: expected apt-get or dnf" >&2
+    exit 1
+}
+
+build_project() {
+    local target="$1"
+    log "building target=${target}"
+    make -C "${PROJECT_DIR}" "${target}"
+}
+
 copy_file() {
     local src="$1"
     local dst="$2"
+    if same_path "${src}" "${dst}"; then
+        log "skipping identical file ${dst}"
+        return 0
+    fi
     install -D -m 0644 "${src}" "${dst}"
 }
 
 copy_exec() {
     local src="$1"
     local dst="$2"
+    if same_path "${src}" "${dst}"; then
+        log "skipping identical executable ${dst}"
+        return 0
+    fi
     install -D -m 0755 "${src}" "${dst}"
 }
 
@@ -57,6 +140,18 @@ while [[ $# -gt 0 ]]; do
         --systemd-dir)
             SYSTEMD_DIR="${2:-}"
             shift 2
+            ;;
+        --install-build-deps)
+            INSTALL_BUILD_DEPS=1
+            shift
+            ;;
+        --build-userspace)
+            BUILD_MODE="userspace"
+            shift
+            ;;
+        --build-all)
+            BUILD_MODE="all"
+            shift
             ;;
         --no-env)
             INSTALL_ENV=0
@@ -87,6 +182,25 @@ log "prefix=${TARGET_PREFIX}"
 log "etc_dir=${TARGET_ETC_DIR}"
 log "systemd_dir=${TARGET_SYSTEMD_DIR}"
 
+if (( INSTALL_BUILD_DEPS )); then
+    install_build_deps
+fi
+
+case "${BUILD_MODE}" in
+    userspace)
+        build_project if_flow
+        ;;
+    all)
+        build_project all
+        ;;
+esac
+
+if [[ ! -x "${PROJECT_DIR}/if_flow" ]]; then
+    echo "missing built binary: ${PROJECT_DIR}/if_flow" >&2
+    echo "hint: run 'make if_flow', 'make', or use --build-userspace/--build-all" >&2
+    exit 1
+fi
+
 copy_exec "${PROJECT_DIR}/if_flow" "${TARGET_PREFIX}/if_flow"
 copy_exec "${PROJECT_DIR}/scripts/run_if_flow.sh" "${TARGET_PREFIX}/scripts/run_if_flow.sh"
 copy_exec "${PROJECT_DIR}/scripts/if_flow_archive.sh" "${TARGET_PREFIX}/scripts/if_flow_archive.sh"
@@ -95,8 +209,8 @@ copy_file "${PROJECT_DIR}/clickhouse_uploader/schema.sql" "${TARGET_PREFIX}/clic
 copy_file "${PROJECT_DIR}/clickhouse_uploader/README.md" "${TARGET_PREFIX}/clickhouse_uploader/README.md"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/docker-compose.yml" "${TARGET_PREFIX}/clickhouse_uploader/docker-compose.yml"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/.env.example" "${TARGET_PREFIX}/clickhouse_uploader/.env.example"
-copy_file "${PROJECT_DIR}/clickhouse_uploader/run_uploader_once.sh" "${TARGET_PREFIX}/clickhouse_uploader/run_uploader_once.sh"
-copy_file "${PROJECT_DIR}/clickhouse_uploader/run_uploader_loop.sh" "${TARGET_PREFIX}/clickhouse_uploader/run_uploader_loop.sh"
+copy_exec "${PROJECT_DIR}/clickhouse_uploader/run_uploader_once.sh" "${TARGET_PREFIX}/clickhouse_uploader/run_uploader_once.sh"
+copy_exec "${PROJECT_DIR}/clickhouse_uploader/run_uploader_loop.sh" "${TARGET_PREFIX}/clickhouse_uploader/run_uploader_loop.sh"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/if_flow-clickhouse.env.example" "${TARGET_PREFIX}/clickhouse_uploader/if_flow-clickhouse.env.example"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/provisioning/datasources/clickhouse.yaml" "${TARGET_PREFIX}/clickhouse_uploader/grafana/provisioning/datasources/clickhouse.yaml"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/provisioning/dashboards/default.yaml" "${TARGET_PREFIX}/clickhouse_uploader/grafana/provisioning/dashboards/default.yaml"
