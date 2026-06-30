@@ -129,10 +129,93 @@ Grafana provisioning is included:
   - [grafana/queries/top_classes.sql](grafana/queries/top_classes.sql)
   - [grafana/queries/class_breakdown.sql](grafana/queries/class_breakdown.sql)
   - [grafana/queries/top_pairs.sql](grafana/queries/top_pairs.sql)
+  - [grafana/queries/top_pairs_with_alias_switch.sql](grafana/queries/top_pairs_with_alias_switch.sql)
   - [grafana/queries/top_processes.sql](grafana/queries/top_processes.sql)
   - [grafana/queries/tcp_without_syn.sql](grafana/queries/tcp_without_syn.sql)
 
 Grafana is the recommended default UI for large traffic volumes because it handles time-series and top-N panels predictably and keeps the stack simpler.
+
+## Grafana host filters and alias switch
+
+A practical Grafana setup for `if_flow` usually includes:
+
+- `traffic_filter` - a `Query` variable populated from ClickHouse host values
+- `name_mode` - a `Custom` variable with values `ip,mapped`
+
+Recommended `traffic_filter` query:
+
+```sql
+SELECT DISTINCT host
+FROM default.if_flow_final
+ORDER BY host
+```
+
+Recommended variable behavior:
+
+- `Type`: `Query`
+- `Multi-value`: `On`
+- `Include All option`: `On`
+- default selection: `All`
+
+Typical host filter condition:
+
+```sql
+AND (
+  '${traffic_filter:raw}' = 'All'
+  OR host IN (${traffic_filter:sqlstring})
+)
+```
+
+Typical name switch behavior:
+
+- `name_mode=ip` - show raw `src_ip` and `dst_ip`
+- `name_mode=mapped` - replace matching IPs with aliases from a lookup table
+
+Recommended lookup table:
+
+```sql
+CREATE TABLE default.ip_aliases
+(
+    ip String,
+    alias String,
+    alias_type LowCardinality(String) DEFAULT 'manual',
+    comment String DEFAULT '',
+    updated_at DateTime DEFAULT now()
+)
+ENGINE = ReplacingMergeTree(updated_at)
+ORDER BY ip
+```
+
+One alias may safely correspond to multiple IP addresses. The lookup is always done by `ip`.
+
+Example alias records:
+
+```sql
+INSERT INTO default.ip_aliases (ip, alias, alias_type, comment) VALUES
+('212.233.91.139', 'wg-frr-251', 'manual', 'WireGuard router in Moscow'),
+('172.18.99.10', 'kube-monitoring', 'manual', 'Monitoring node'),
+('176.124.218.78', 'wg-frr-252', 'manual', 'Second WireGuard router'),
+('72.56.240.153', 'db-center', 'manual', 'Database endpoint'),
+('10.10.10.11', 'kube-monitoring', 'manual', 'Same logical host, second IP');
+```
+
+To inspect current alias mappings:
+
+```sql
+SELECT ip, alias, alias_type, comment, updated_at
+FROM default.ip_aliases
+ORDER BY alias, ip;
+```
+
+Ready example:
+
+- [grafana/queries/top_pairs_with_alias_switch.sql](grafana/queries/top_pairs_with_alias_switch.sql)
+
+That query demonstrates:
+
+- host filtering through `traffic_filter`
+- alias switching through `name_mode`
+- fallback to raw IP when no alias is found
 
 ## systemd deployment
 
@@ -141,6 +224,29 @@ For systemd installations, use the dedicated template from:
 - [../deploy/systemd/if_flow-clickhouse.env.example](../deploy/systemd/if_flow-clickhouse.env.example)
 
 That template is intended for `/opt/if_flow` style deployment and differs from the local project template.
+
+For host-side systemd deployment, the uploader service uses:
+
+- unit: [../deploy/systemd/if_flow-clickhouse-uploader.service](../deploy/systemd/if_flow-clickhouse-uploader.service)
+- env: `/opt/if_flow/deploy/systemd/if_flow-clickhouse.env`
+
+Recommended sequence on a traffic source host:
+
+```bash
+sudo make install-systemd
+sudo editor /opt/if_flow/deploy/systemd/if_flow-clickhouse.env
+sudo systemctl enable --now if_flow-clickhouse-uploader.service
+```
+
+For a fresh host that still lacks dependencies and a built binary, use:
+
+```bash
+sudo make bootstrap-systemd
+```
+
+Then fill in `/opt/if_flow/deploy/systemd/if_flow-clickhouse.env` and enable the uploader service.
+
+The systemd unit intentionally starts `run_uploader_loop.sh`, not the Python file directly, so host deployment follows the same execution path as manual loop testing.
 
 ## Retention
 

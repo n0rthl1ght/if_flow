@@ -3,21 +3,10 @@
   "kind": "Dashboard",
   "metadata": {
     "name": "addhqhp",
-    "namespace": "default",
-    "uid": "317094b9-8df6-4f75-9787-325e968a0148",
-    "resourceVersion": "1782420527992017",
-    "generation": 9,
+    "generation": 52,
     "creationTimestamp": "2026-06-25T07:46:44Z",
-    "labels": {
-      "grafana.app/deprecatedInternalID": "2898818432622592"
-    },
-    "annotations": {
-      "grafana.app/createdBy": "user:cfq6jrc3x7qpsb",
-      "grafana.app/folder": "",
-      "grafana.app/saved-from-ui": "Grafana v13.0.2 (3fcdbc5a)",
-      "grafana.app/updatedBy": "user:cfq6jrc3x7qpsb",
-      "grafana.app/updatedTimestamp": "2026-06-25T20:48:47Z"
-    }
+    "labels": {},
+    "annotations": {}
   },
   "spec": {
     "annotations": [
@@ -28,10 +17,10 @@
             "kind": "DataQuery",
             "group": "grafana",
             "version": "v0",
-            "datasource": {
-              "name": "-- Grafana --"
-            },
-            "spec": {}
+            "spec": {},
+            "labels": {
+              "grafana.app/export-label": "grafana-1"
+            }
           },
           "enable": true,
           "hide": true,
@@ -62,9 +51,6 @@
                       "kind": "DataQuery",
                       "group": "grafana-clickhouse-datasource",
                       "version": "v0",
-                      "datasource": {
-                        "name": "if_flow_clickhouse"
-                      },
                       "spec": {
                         "builderOptions": {
                           "columns": [],
@@ -90,7 +76,10 @@
                         },
                         "pluginVersion": "4.18.0",
                         "queryType": "table",
-                        "rawSql": "SELECT\r\n  toStartOfMinute(minute_dt) AS time,\r\n  host,\r\n  sum(bytes) AS total_bytes\r\nFROM default.if_flow_minute_host\r\nWHERE $__timeFilter(minute_dt)\r\nGROUP BY time, host\r\nORDER BY time\r\n"
+                        "rawSql": "SELECT\r\n  toStartOfMinute(minute_dt) AS time,\r\n  sum(bytes) AS total_bytes\r\nFROM default.if_flow_minute_host\r\nWHERE $__timeFilter(toDateTime(minute_ts))\r\n  AND (\r\n    '${traffic_filter:raw}' = 'All'\r\n    OR host IN (${traffic_filter:sqlstring})\r\n  )\r\nGROUP BY time\r\nORDER BY time"
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "grafana-clickhouse-datasource-1"
                       }
                     },
                     "refId": "A",
@@ -126,6 +115,7 @@
               },
               "fieldConfig": {
                 "defaults": {
+                  "unit": "bytes",
                   "thresholds": {
                     "mode": "absolute",
                     "steps": [
@@ -201,9 +191,6 @@
                       "kind": "DataQuery",
                       "group": "grafana-clickhouse-datasource",
                       "version": "v0",
-                      "datasource": {
-                        "name": "if_flow_clickhouse"
-                      },
                       "spec": {
                         "editorType": "sql",
                         "format": 1,
@@ -219,7 +206,10 @@
                         },
                         "pluginVersion": "4.18.0",
                         "queryType": "table",
-                        "rawSql": "SELECT\r\n  toStartOfMinute(minute_dt) AS time,\r\n  sumIf(bytes, direction = 'in') AS \"in\",\r\n  sumIf(bytes, direction = 'out') AS \"out\",\r\n  sumIf(bytes, direction = 'internal') AS \"internal\",\r\n  sumIf(bytes, direction = 'transit') AS \"transit\"\r\nFROM default.if_flow_minute_host\r\nWHERE $__timeFilter(minute_dt)\r\nGROUP BY time\r\nORDER BY time\r\n"
+                        "rawSql": "SELECT\r\n  toStartOfMinute(minute_dt) AS time,\r\n  sumIf(bytes, direction = 'in') AS \"in\",\r\n  sumIf(bytes, direction = 'out') AS \"out\",\r\n  sumIf(bytes, direction = 'internal') AS \"internal\",\r\n  sumIf(bytes, direction = 'transit') AS \"transit\"\r\nFROM default.if_flow_minute_host\r\nWHERE $__timeFilter(toDateTime(minute_ts))\r\n  AND (\r\n  '${traffic_filter:raw}' = 'All'\r\n  OR host IN (${traffic_filter:sqlstring})\r\n)\r\nGROUP BY time\r\nORDER BY time\r\n"
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "grafana-clickhouse-datasource-1"
                       }
                     },
                     "refId": "A",
@@ -334,9 +324,6 @@
                       "kind": "DataQuery",
                       "group": "grafana-clickhouse-datasource",
                       "version": "v0",
-                      "datasource": {
-                        "name": "if_flow_clickhouse"
-                      },
                       "spec": {
                         "editorType": "sql",
                         "format": 1,
@@ -352,7 +339,10 @@
                         },
                         "pluginVersion": "4.18.0",
                         "queryType": "table",
-                        "rawSql": "SELECT\r\n  class,\r\n  sum(bytes) AS total_bytes\r\nFROM default.if_flow_final\r\nWHERE $__timeFilter(minute_dt)\r\nGROUP BY class\r\nORDER BY total_bytes DESC\r\nLIMIT 15"
+                        "rawSql": "SELECT\r\n  class,\r\n  sum(bytes) AS total_bytes\r\nFROM default.if_flow_minute_host\r\nWHERE $__timeFilter(toDateTime(minute_ts))\r\n  AND (\r\n  '${traffic_filter:raw}' = 'All'\r\n  OR host IN (${traffic_filter:sqlstring})\r\n)\r\nGROUP BY class\r\nORDER BY total_bytes DESC\r\nLIMIT 15"
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "grafana-clickhouse-datasource-1"
                       }
                     },
                     "refId": "A",
@@ -462,9 +452,6 @@
                       "kind": "DataQuery",
                       "group": "grafana-clickhouse-datasource",
                       "version": "v0",
-                      "datasource": {
-                        "name": "if_flow_clickhouse"
-                      },
                       "spec": {
                         "editorType": "sql",
                         "format": 1,
@@ -480,7 +467,10 @@
                         },
                         "pluginVersion": "4.18.0",
                         "queryType": "table",
-                        "rawSql": "SELECT\n  host,\n  src_ip,\n  src_port,\n  dst_ip,\n  dst_port,\n  class,\n  process,\n  bytes,\n  packets,\n  connections\nFROM default.if_flow_top_pairs\nWHERE $__timeFilter(minute_dt)\nORDER BY bytes DESC\nLIMIT 100\n"
+                        "rawSql": "SELECT\r\n  minute_dt,\r\n  host,\r\n  src_ip,\r\n  if('${name_mode}' = 'mapped' AND src_alias.alias != '', src_alias.alias, t.src_ip) AS src_name,\r\n  src_port,\r\n  dst_ip,\r\n  if('${name_mode}' = 'mapped' AND dst_alias.alias != '', dst_alias.alias, t.dst_ip) AS dst_name,\r\n  dst_port,\r\n  class,\r\n  bytes,\r\n  packets\r\nFROM default.if_flow_top_pairs AS t\r\nLEFT JOIN default.ip_aliases AS src_alias\r\n  ON t.src_ip = src_alias.ip\r\nLEFT JOIN default.ip_aliases AS dst_alias\r\n  ON t.dst_ip = dst_alias.ip\r\nWHERE $__timeFilter(toDateTime(minute_ts))\r\n  AND (\r\n    '${traffic_filter:raw}' = 'All'\r\n    OR host IN (${traffic_filter:sqlstring})\r\n  )\r\nORDER BY bytes DESC\r\nLIMIT 50"
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "grafana-clickhouse-datasource-1"
                       }
                     },
                     "refId": "A",
@@ -501,12 +491,7 @@
                 "cellHeight": "sm",
                 "enablePagination": false,
                 "showHeader": true,
-                "sortBy": [
-                  {
-                    "desc": true,
-                    "displayName": "minute_dt"
-                  }
-                ]
+                "sortBy": []
               },
               "fieldConfig": {
                 "defaults": {
@@ -554,7 +539,7 @@
         "kind": "Panel",
         "spec": {
           "id": 5,
-          "title": "Топ Процессов По Трафику",
+          "title": "Поиск",
           "description": "",
           "links": [],
           "data": {
@@ -568,25 +553,57 @@
                       "kind": "DataQuery",
                       "group": "grafana-clickhouse-datasource",
                       "version": "v0",
-                      "datasource": {
-                        "name": "if_flow_clickhouse"
-                      },
                       "spec": {
+                        "builderOptions": {
+                          "aggregates": [],
+                          "columns": [
+                            {
+                              "alias": "class",
+                              "custom": false,
+                              "name": "class",
+                              "type": "LowCardinality(String)"
+                            }
+                          ],
+                          "database": "default",
+                          "filters": [],
+                          "groupBy": [],
+                          "limit": 1000,
+                          "meta": {},
+                          "mode": "list",
+                          "orderBy": [],
+                          "queryType": "table",
+                          "table": "if_flow_final"
+                        },
                         "editorType": "sql",
                         "format": 1,
                         "meta": {
                           "builderOptions": {
-                            "columns": [],
-                            "database": "",
+                            "aggregates": [],
+                            "columns": [
+                              {
+                                "alias": "class",
+                                "custom": false,
+                                "name": "class",
+                                "type": "LowCardinality(String)"
+                              }
+                            ],
+                            "database": "default",
+                            "filters": [],
+                            "groupBy": [],
                             "limit": 1000,
+                            "meta": {},
                             "mode": "list",
+                            "orderBy": [],
                             "queryType": "table",
-                            "table": ""
+                            "table": "if_flow_final"
                           }
                         },
                         "pluginVersion": "4.18.0",
                         "queryType": "table",
-                        "rawSql": "SELECT\n  minute_dt,\n  host,\n  process,\n  workload,\n  src_ip,\n  dst_ip,\n  class,\n  bytes,\n  packets,\n  connections_effective\nFROM default.if_flow_final\nWHERE $__timeFilter(minute_dt)\n  AND process != ''\nORDER BY bytes DESC\nLIMIT 100\n"
+                        "rawSql": "SELECT\r\n  f.minute_dt,\r\n  f.class,\r\n  f.host,\r\n  f.src_ip,\r\n  if(\r\n    '${name_mode}' = 'mapped' AND ifNull(src_map.alias, '') != '',\r\n    src_map.alias,\r\n    f.src_ip\r\n  ) AS src_name,\r\n  f.dst_ip,\r\n  if(\r\n    '${name_mode}' = 'mapped' AND ifNull(dst_map.alias, '') != '',\r\n    dst_map.alias,\r\n    f.dst_ip\r\n  ) AS dst_name,\r\n  f.direction,\r\n  sum(f.bytes) AS total_bytes\r\nFROM default.if_flow_final AS f\r\nLEFT JOIN default.ip_aliases AS src_map\r\n  ON f.src_ip = src_map.ip\r\nLEFT JOIN default.ip_aliases AS dst_map\r\n  ON f.dst_ip = dst_map.ip\r\nWHERE $__timeFilter(toDateTime(f.minute_ts))\r\n  AND (\r\n    '${ip_filter}' != ''\r\n    OR '${host_filter}' != ''\r\n    OR '${class_filter}' != ''\r\n  )\r\n  AND (\r\n    '${ip_filter}' = ''\r\n    OR positionCaseInsensitive(f.src_ip, '${ip_filter}') > 0\r\n    OR positionCaseInsensitive(f.dst_ip, '${ip_filter}') > 0\r\n  )\r\n  AND (\r\n    '${host_filter}' = ''\r\n    OR positionCaseInsensitive(f.host, '${host_filter}') > 0\r\n  )\r\n  AND (\r\n    '${class_filter}' = ''\r\n    OR positionCaseInsensitive(f.class, '${class_filter}') > 0\r\n  )\r\nGROUP BY\r\n  f.minute_dt,\r\n  f.class,\r\n  f.host,\r\n  f.src_ip,\r\n  src_name,\r\n  f.dst_ip,\r\n  dst_name,\r\n  f.direction\r\nORDER BY\r\n  f.minute_dt DESC,\r\n  f.class ASC,\r\n  total_bytes DESC"
+                      },
+                      "labels": {
+                        "grafana.app/export-label": "grafana-clickhouse-datasource-1"
                       }
                     },
                     "refId": "A",
@@ -605,14 +622,8 @@
             "spec": {
               "options": {
                 "cellHeight": "sm",
-                "enablePagination": false,
                 "showHeader": true,
-                "sortBy": [
-                  {
-                    "desc": true,
-                    "displayName": "minute_dt"
-                  }
-                ]
+                "sortBy": []
               },
               "fieldConfig": {
                 "defaults": {
@@ -629,132 +640,19 @@
                       }
                     ]
                   },
-                  "color": {
-                    "mode": "continuous-greens"
-                  },
                   "custom": {
                     "align": "center",
                     "cellOptions": {
-                      "applyToRow": true,
-                      "mode": "basic",
-                      "type": "color-background"
+                      "type": "auto"
                     },
                     "filterable": true,
                     "footer": {
                       "reducers": []
                     },
                     "inspect": false,
-                    "styleField": "bytes",
-                    "wrapHeaderText": true,
+                    "wrapHeaderText": false,
                     "wrapText": true
-                  },
-                  "fieldMinMax": false
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-6": {
-        "kind": "Panel",
-        "spec": {
-          "id": 6,
-          "title": "TCP Flows Без SYN",
-          "description": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "grafana-clickhouse-datasource",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "if_flow_clickhouse"
-                      },
-                      "spec": {
-                        "editorType": "sql",
-                        "format": 1,
-                        "meta": {
-                          "builderOptions": {
-                            "columns": [],
-                            "database": "",
-                            "limit": 1000,
-                            "mode": "list",
-                            "queryType": "table",
-                            "table": ""
-                          }
-                        },
-                        "pluginVersion": "4.18.0",
-                        "queryType": "table",
-                        "rawSql": "SELECT\n  minute_dt,\n  host,\n  src_ip,\n  src_port,\n  dst_ip,\n  dst_port,\n  class,\n  tcp_seen_without_syn,\n  connection_inferred,\n  bytes,\n  packets,\n  process\nFROM default.if_flow_final\nWHERE $__timeFilter(minute_dt)\n  AND proto = 6\n  AND tcp_seen_without_syn = 1\nORDER BY minute_dt DESC, bytes DESC\nLIMIT 200\n"
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
                   }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "table",
-            "version": "13.0.2",
-            "spec": {
-              "options": {
-                "cellHeight": "sm",
-                "enablePagination": false,
-                "showHeader": true,
-                "sortBy": [
-                  {
-                    "desc": true,
-                    "displayName": "minute_dt"
-                  }
-                ]
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "thresholds": {
-                    "mode": "absolute",
-                    "steps": [
-                      {
-                        "value": 0,
-                        "color": "green"
-                      },
-                      {
-                        "value": 80,
-                        "color": "red"
-                      }
-                    ]
-                  },
-                  "color": {
-                    "mode": "continuous-greens"
-                  },
-                  "custom": {
-                    "align": "center",
-                    "cellOptions": {
-                      "applyToRow": true,
-                      "mode": "basic",
-                      "type": "color-background"
-                    },
-                    "filterable": true,
-                    "footer": {
-                      "reducers": []
-                    },
-                    "inspect": false,
-                    "styleField": "bytes",
-                    "wrapHeaderText": true,
-                    "wrapText": true
-                  },
-                  "fieldMinMax": false
                 },
                 "overrides": []
               }
@@ -818,6 +716,19 @@
                 "name": "panel-4"
               }
             }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 21,
+              "width": 24,
+              "height": 8,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-5"
+              }
+            }
           }
         ]
       }
@@ -828,7 +739,7 @@
     "tags": [],
     "timeSettings": {
       "timezone": "browser",
-      "from": "now-12h",
+      "from": "now-6h",
       "to": "now",
       "autoRefresh": "5m",
       "autoRefreshIntervals": [
@@ -847,7 +758,102 @@
       "fiscalYearStartMonth": 0
     },
     "title": "if_flow",
-    "variables": [],
+    "variables": [
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "name": "ip_filter",
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "query": "",
+          "label": "IP Filter",
+          "hide": "dontHide",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "name": "host_filter",
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "query": "",
+          "label": "Host",
+          "hide": "dontHide",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "name": "class_filter",
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "query": "",
+          "label": "Class",
+          "hide": "dontHide",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "traffic_filter",
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "label": "Traffic",
+          "hide": "dontHide",
+          "refresh": "onDashboardLoad",
+          "skipUrlSync": false,
+          "query": {
+            "kind": "DataQuery",
+            "group": "grafana-clickhouse-datasource",
+            "version": "v0",
+            "spec": {
+              "__legacyStringValue": "SELECT DISTINCT host\nFROM default.if_flow_final\nORDER BY host"
+            },
+            "labels": {
+              "grafana.app/export-label": "grafana-clickhouse-datasource-1"
+            }
+          },
+          "regex": "",
+          "regexApplyTo": "value",
+          "sort": "disabled",
+          "definition": "SELECT DISTINCT host\nFROM default.if_flow_final\nORDER BY host",
+          "options": [],
+          "multi": false,
+          "includeAll": true,
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "CustomVariable",
+        "spec": {
+          "name": "name_mode",
+          "query": "ip, mapped",
+          "current": {
+            "text": "mapped",
+            "value": "mapped"
+          },
+          "options": [],
+          "multi": false,
+          "includeAll": false,
+          "label": "IP Mapping",
+          "hide": "dontHide",
+          "skipUrlSync": false,
+          "allowCustomValue": true,
+          "valuesFormat": "csv"
+        }
+      }
+    ],
     "preferences": {
       "layout": {
         "kind": "GridLayout",
