@@ -3,7 +3,7 @@
   "kind": "Dashboard",
   "metadata": {
     "name": "addhqhp",
-    "generation": 52,
+    "generation": 56,
     "creationTimestamp": "2026-06-25T07:46:44Z",
     "labels": {},
     "annotations": {}
@@ -600,7 +600,7 @@
                         },
                         "pluginVersion": "4.18.0",
                         "queryType": "table",
-                        "rawSql": "SELECT\r\n  f.minute_dt,\r\n  f.class,\r\n  f.host,\r\n  f.src_ip,\r\n  if(\r\n    '${name_mode}' = 'mapped' AND ifNull(src_map.alias, '') != '',\r\n    src_map.alias,\r\n    f.src_ip\r\n  ) AS src_name,\r\n  f.dst_ip,\r\n  if(\r\n    '${name_mode}' = 'mapped' AND ifNull(dst_map.alias, '') != '',\r\n    dst_map.alias,\r\n    f.dst_ip\r\n  ) AS dst_name,\r\n  f.direction,\r\n  sum(f.bytes) AS total_bytes\r\nFROM default.if_flow_final AS f\r\nLEFT JOIN default.ip_aliases AS src_map\r\n  ON f.src_ip = src_map.ip\r\nLEFT JOIN default.ip_aliases AS dst_map\r\n  ON f.dst_ip = dst_map.ip\r\nWHERE $__timeFilter(toDateTime(f.minute_ts))\r\n  AND (\r\n    '${ip_filter}' != ''\r\n    OR '${host_filter}' != ''\r\n    OR '${class_filter}' != ''\r\n  )\r\n  AND (\r\n    '${ip_filter}' = ''\r\n    OR positionCaseInsensitive(f.src_ip, '${ip_filter}') > 0\r\n    OR positionCaseInsensitive(f.dst_ip, '${ip_filter}') > 0\r\n  )\r\n  AND (\r\n    '${host_filter}' = ''\r\n    OR positionCaseInsensitive(f.host, '${host_filter}') > 0\r\n  )\r\n  AND (\r\n    '${class_filter}' = ''\r\n    OR positionCaseInsensitive(f.class, '${class_filter}') > 0\r\n  )\r\nGROUP BY\r\n  f.minute_dt,\r\n  f.class,\r\n  f.host,\r\n  f.src_ip,\r\n  src_name,\r\n  f.dst_ip,\r\n  dst_name,\r\n  f.direction\r\nORDER BY\r\n  f.minute_dt DESC,\r\n  f.class ASC,\r\n  total_bytes DESC"
+                        "rawSql": "SELECT\r\n  f.minute_dt,\r\n  f.class,\r\n  f.host,\r\n  f.src_ip,\r\n  if(\r\n    '${name_mode}' = 'mapped' AND ifNull(src_map.alias, '') != '',\r\n    src_map.alias,\r\n    f.src_ip\r\n  ) AS src_name,\r\n  f.src_port,\r\n  f.dst_ip,\r\n  if(\r\n    '${name_mode}' = 'mapped' AND ifNull(dst_map.alias, '') != '',\r\n    dst_map.alias,\r\n    f.dst_ip\r\n  ) AS dst_name,\r\n  f.dst_port,\r\n  f.direction,\r\n  sum(f.bytes) AS total_bytes\r\nFROM default.if_flow_final AS f\r\nLEFT JOIN default.ip_aliases AS src_map\r\n  ON f.src_ip = src_map.ip\r\nLEFT JOIN default.ip_aliases AS dst_map\r\n  ON f.dst_ip = dst_map.ip\r\nWHERE $__timeFilter(toDateTime(f.minute_ts))\r\n  AND (\r\n    '${ip_filter}' != ''\r\n    OR '${host_filter}' != ''\r\n    OR '${class_filter}' != ''\r\n    OR '${port_filter}' != ''\r\n  )\r\n  AND (\r\n    '${ip_filter}' = ''\r\n    OR positionCaseInsensitive(f.src_ip, '${ip_filter}') > 0\r\n    OR positionCaseInsensitive(f.dst_ip, '${ip_filter}') > 0\r\n  )\r\n  AND (\r\n    '${host_filter}' = ''\r\n    OR positionCaseInsensitive(f.host, '${host_filter}') > 0\r\n  )\r\n  AND (\r\n    '${class_filter}' = ''\r\n    OR positionCaseInsensitive(f.class, '${class_filter}') > 0\r\n  )\r\n  AND (\r\n    '${port_filter}' = ''\r\n    OR f.src_port = toUInt16OrNull(trim('${port_filter}'))\r\n    OR f.dst_port = toUInt16OrNull(trim('${port_filter}'))\r\n  )\r\nGROUP BY\r\n  f.minute_dt,\r\n  f.class,\r\n  f.host,\r\n  f.src_ip,\r\n  src_name,\r\n  f.src_port,\r\n  f.dst_ip,\r\n  dst_name,\r\n  f.dst_port,\r\n  f.direction\r\nORDER BY\r\n  f.minute_dt DESC,\r\n  f.class ASC,\r\n  total_bytes DESC"
                       },
                       "labels": {
                         "grafana.app/export-label": "grafana-clickhouse-datasource-1"
@@ -769,6 +769,20 @@
           },
           "query": "",
           "label": "IP Filter",
+          "hide": "dontHide",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "name": "port_filter",
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "query": "",
+          "label": "Port",
           "hide": "dontHide",
           "skipUrlSync": false
         }
