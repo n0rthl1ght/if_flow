@@ -1,0 +1,4 @@
+<localfile>
+  <location>/opt/if_flow/wazuh/if_flow_alerts.jsonl</location>
+  <log_format>json</log_format>
+</localfile>

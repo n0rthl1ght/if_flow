@@ -200,10 +200,37 @@ sudo systemctl enable --now if_flow-archive.timer
 sudo systemctl enable --now if_flow-clickhouse-uploader.service
 ```
 
+Режимы установки:
+
+- `make install-host` - host mode, без Wazuh
+- `make bootstrap-host` - новый host, без Wazuh
+- `make install-host-wazuh` - host mode с Wazuh bridge
+- `make bootstrap-host-wazuh` - новый host с Wazuh bridge
+- `make install-server` - server mode, только ClickHouse/Grafana stack assets
+- `make install-server-wazuh` - server mode с дополнительной установкой Wazuh bridge
+
+Совместимые алиасы сохранены:
+
+- `make install-systemd` -> `make install-host`
+- `make bootstrap-systemd` -> `make bootstrap-host`
+- `make install-systemd-wazuh` -> `make install-host-wazuh`
+- `make bootstrap-systemd-wazuh` -> `make bootstrap-host-wazuh`
+
+Матрица команд:
+
+| Сценарий | Команда | Что устанавливается |
+| --- | --- | --- |
+| Подготовленный host | `make install-host` | `if_flow`, uploader, host `systemd` units |
+| Новый host | `sudo make bootstrap-host` | зависимости, сборка, `if_flow`, uploader, host `systemd` units |
+| Подготовленный host + Wazuh | `make install-host-wazuh` | host stack + optional Wazuh bridge |
+| Новый host + Wazuh | `sudo make bootstrap-host-wazuh` | зависимости, сборка, host stack + optional Wazuh bridge |
+| Server | `make install-server` | `ClickHouse/Grafana` assets, dashboards, queries, compose files |
+| Server + Wazuh | `make install-server-wazuh` | server assets + optional Wazuh bridge |
+
 Bootstrap-режим для нового хоста:
 
 ```bash
-sudo make bootstrap-systemd
+sudo make bootstrap-host
 ```
 
 Этот режим:
@@ -214,13 +241,34 @@ sudo make bootstrap-systemd
 - копирует unit-файлы в `/etc/systemd/system`
 - выполняет `systemctl daemon-reload`
 
+Wazuh bridge по умолчанию не устанавливается. Он всегда опционален и включается только отдельными командами:
+
+```bash
+make install-host-wazuh
+sudo make bootstrap-host-wazuh
+make install-server-wazuh
+```
+
 Практический порядок для хоста:
 
-1. На уже подготовленном хосте: `make` и `sudo make install-systemd`
-2. На новом чистом хосте: `sudo make bootstrap-systemd`
+1. На уже подготовленном хосте: `make` и `sudo make install-host`
+2. На новом чистом хосте: `sudo make bootstrap-host`
 3. Заполнить env-файлы в `/opt/if_flow/deploy/systemd/`
 4. Запустить `if_flow.service`
 5. При необходимости включить `if_flow-clickhouse-uploader.service`
+
+Практический порядок для сервера:
+
+1. Разложить server assets: `make install-server`
+2. Перейти в `/opt/if_flow/clickhouse_uploader`
+3. Подготовить `.env`
+4. Запустить `docker compose up -d --build`
+
+Если серверу нужен только alerting bridge для Wazuh:
+
+1. Выполнить `make install-server-wazuh`
+2. Заполнить `/opt/if_flow/deploy/systemd/if_flow-wazuh.env`
+3. Включить `if_flow-wazuh-bridge.service`
 
 `if_flow-clickhouse-uploader.service` теперь запускает тот же wrapper-скрипт, что и ручной loop-run, и использует явный env-файл `/opt/if_flow/deploy/systemd/if_flow-clickhouse.env`. Это убирает расхождение между ручным запуском и systemd-запуском.
 

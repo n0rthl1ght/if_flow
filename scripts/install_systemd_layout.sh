@@ -12,18 +12,22 @@ INSTALL_ENV=1
 RELOAD_SYSTEMD=0
 INSTALL_BUILD_DEPS=0
 BUILD_MODE=""
+DEPLOY_MODE="host"
+WITH_WAZUH=0
 
 usage() {
     cat <<'EOF'
 usage: install_systemd_layout.sh [options]
 
 Options:
+  --mode MODE          Deployment mode: host or server (default: host)
   --prefix PATH         Install project files under PATH (default: /opt/if_flow)
   --etc-dir PATH        Install env file under PATH (default: /opt/if_flow/deploy/systemd)
   --systemd-dir PATH    Install unit files under PATH (default: /etc/systemd/system)
   --install-build-deps  Install compiler/runtime dependencies for this host
   --build-userspace     Build only the userspace binary before install
   --build-all           Build userspace + BPF object before install
+  --with-wazuh          Include optional Wazuh bridge files and service
   --no-env              Do not install the example env file
   --reload-systemd      Run systemctl daemon-reload after copying units
   -h, --help            Show this help
@@ -107,6 +111,17 @@ build_project() {
     make -C "${PROJECT_DIR}" "${target}"
 }
 
+validate_mode() {
+    case "${DEPLOY_MODE}" in
+        host|server)
+            ;;
+        *)
+            echo "invalid --mode '${DEPLOY_MODE}': expected host or server" >&2
+            exit 1
+            ;;
+    esac
+}
+
 copy_file() {
     local src="$1"
     local dst="$2"
@@ -129,6 +144,10 @@ copy_exec() {
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --mode)
+            DEPLOY_MODE="${2:-}"
+            shift 2
+            ;;
         --prefix)
             PREFIX="${2:-}"
             shift 2
@@ -153,6 +172,10 @@ while [[ $# -gt 0 ]]; do
             BUILD_MODE="all"
             shift
             ;;
+        --with-wazuh)
+            WITH_WAZUH=1
+            shift
+            ;;
         --no-env)
             INSTALL_ENV=0
             shift
@@ -173,11 +196,14 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+validate_mode
+
 TARGET_PREFIX="${DESTDIR}${PREFIX}"
 TARGET_ETC_DIR="${DESTDIR}${ETC_DIR}"
 TARGET_SYSTEMD_DIR="${DESTDIR}${SYSTEMD_DIR}"
 
 log "project_dir=${PROJECT_DIR}"
+log "deploy_mode=${DEPLOY_MODE}"
 log "prefix=${TARGET_PREFIX}"
 log "etc_dir=${TARGET_ETC_DIR}"
 log "systemd_dir=${TARGET_SYSTEMD_DIR}"
@@ -195,23 +221,16 @@ case "${BUILD_MODE}" in
         ;;
 esac
 
-if [[ ! -x "${PROJECT_DIR}/if_flow" ]]; then
+if [[ "${DEPLOY_MODE}" == "host" && ! -x "${PROJECT_DIR}/if_flow" ]]; then
     echo "missing built binary: ${PROJECT_DIR}/if_flow" >&2
     echo "hint: run 'make if_flow', 'make', or use --build-userspace/--build-all" >&2
     exit 1
 fi
 
-copy_exec "${PROJECT_DIR}/if_flow" "${TARGET_PREFIX}/if_flow"
-copy_exec "${PROJECT_DIR}/scripts/run_if_flow.sh" "${TARGET_PREFIX}/scripts/run_if_flow.sh"
-copy_exec "${PROJECT_DIR}/scripts/if_flow_archive.sh" "${TARGET_PREFIX}/scripts/if_flow_archive.sh"
-copy_exec "${PROJECT_DIR}/clickhouse_uploader/if_flow_clickhouse_uploader.py" "${TARGET_PREFIX}/clickhouse_uploader/if_flow_clickhouse_uploader.py"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/schema.sql" "${TARGET_PREFIX}/clickhouse_uploader/schema.sql"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/README.md" "${TARGET_PREFIX}/clickhouse_uploader/README.md"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/docker-compose.yml" "${TARGET_PREFIX}/clickhouse_uploader/docker-compose.yml"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/.env.example" "${TARGET_PREFIX}/clickhouse_uploader/.env.example"
-copy_exec "${PROJECT_DIR}/clickhouse_uploader/run_uploader_once.sh" "${TARGET_PREFIX}/clickhouse_uploader/run_uploader_once.sh"
-copy_exec "${PROJECT_DIR}/clickhouse_uploader/run_uploader_loop.sh" "${TARGET_PREFIX}/clickhouse_uploader/run_uploader_loop.sh"
-copy_file "${PROJECT_DIR}/clickhouse_uploader/if_flow-clickhouse.env.example" "${TARGET_PREFIX}/clickhouse_uploader/if_flow-clickhouse.env.example"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/provisioning/datasources/clickhouse.yaml" "${TARGET_PREFIX}/clickhouse_uploader/grafana/provisioning/datasources/clickhouse.yaml"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/provisioning/dashboards/default.yaml" "${TARGET_PREFIX}/clickhouse_uploader/grafana/provisioning/dashboards/default.yaml"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/README.md" "${TARGET_PREFIX}/clickhouse_uploader/grafana/README.md"
@@ -224,16 +243,37 @@ copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/queries/top_pairs.sql" "${
 copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/queries/top_processes.sql" "${TARGET_PREFIX}/clickhouse_uploader/grafana/queries/top_processes.sql"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/queries/tcp_without_syn.sql" "${TARGET_PREFIX}/clickhouse_uploader/grafana/queries/tcp_without_syn.sql"
 
-if [[ -f "${PROJECT_DIR}/bpf/if_flow.bpf.o" ]]; then
-    copy_file "${PROJECT_DIR}/bpf/if_flow.bpf.o" "${TARGET_PREFIX}/bpf/if_flow.bpf.o"
+if [[ "${DEPLOY_MODE}" == "host" ]]; then
+    copy_exec "${PROJECT_DIR}/if_flow" "${TARGET_PREFIX}/if_flow"
+    copy_exec "${PROJECT_DIR}/scripts/run_if_flow.sh" "${TARGET_PREFIX}/scripts/run_if_flow.sh"
+    copy_exec "${PROJECT_DIR}/scripts/if_flow_archive.sh" "${TARGET_PREFIX}/scripts/if_flow_archive.sh"
+    copy_exec "${PROJECT_DIR}/clickhouse_uploader/if_flow_clickhouse_uploader.py" "${TARGET_PREFIX}/clickhouse_uploader/if_flow_clickhouse_uploader.py"
+    copy_exec "${PROJECT_DIR}/clickhouse_uploader/run_uploader_once.sh" "${TARGET_PREFIX}/clickhouse_uploader/run_uploader_once.sh"
+    copy_exec "${PROJECT_DIR}/clickhouse_uploader/run_uploader_loop.sh" "${TARGET_PREFIX}/clickhouse_uploader/run_uploader_loop.sh"
+    copy_file "${PROJECT_DIR}/clickhouse_uploader/if_flow-clickhouse.env.example" "${TARGET_PREFIX}/clickhouse_uploader/if_flow-clickhouse.env.example"
+
+    if [[ -f "${PROJECT_DIR}/bpf/if_flow.bpf.o" ]]; then
+        copy_file "${PROJECT_DIR}/bpf/if_flow.bpf.o" "${TARGET_PREFIX}/bpf/if_flow.bpf.o"
+    fi
+
+    copy_file "${PROJECT_DIR}/deploy/systemd/if_flow.service" "${TARGET_SYSTEMD_DIR}/if_flow.service"
+    copy_file "${PROJECT_DIR}/deploy/systemd/if_flow-archive.service" "${TARGET_SYSTEMD_DIR}/if_flow-archive.service"
+    copy_file "${PROJECT_DIR}/deploy/systemd/if_flow-archive.timer" "${TARGET_SYSTEMD_DIR}/if_flow-archive.timer"
+    copy_file "${PROJECT_DIR}/deploy/systemd/if_flow-clickhouse-uploader.service" "${TARGET_SYSTEMD_DIR}/if_flow-clickhouse-uploader.service"
+
 fi
 
-copy_file "${PROJECT_DIR}/deploy/systemd/if_flow.service" "${TARGET_SYSTEMD_DIR}/if_flow.service"
-copy_file "${PROJECT_DIR}/deploy/systemd/if_flow-archive.service" "${TARGET_SYSTEMD_DIR}/if_flow-archive.service"
-copy_file "${PROJECT_DIR}/deploy/systemd/if_flow-archive.timer" "${TARGET_SYSTEMD_DIR}/if_flow-archive.timer"
-copy_file "${PROJECT_DIR}/deploy/systemd/if_flow-clickhouse-uploader.service" "${TARGET_SYSTEMD_DIR}/if_flow-clickhouse-uploader.service"
+if (( WITH_WAZUH )); then
+    copy_exec "${PROJECT_DIR}/wazuh_integration/if_flow_wazuh_bridge.py" "${TARGET_PREFIX}/wazuh_integration/if_flow_wazuh_bridge.py"
+    copy_file "${PROJECT_DIR}/wazuh_integration/README.md" "${TARGET_PREFIX}/wazuh_integration/README.md"
+    copy_exec "${PROJECT_DIR}/wazuh_integration/run_wazuh_bridge_once.sh" "${TARGET_PREFIX}/wazuh_integration/run_wazuh_bridge_once.sh"
+    copy_exec "${PROJECT_DIR}/wazuh_integration/run_wazuh_bridge_loop.sh" "${TARGET_PREFIX}/wazuh_integration/run_wazuh_bridge_loop.sh"
+    copy_file "${PROJECT_DIR}/wazuh_integration/if_flow-wazuh.env.example" "${TARGET_PREFIX}/wazuh_integration/if_flow-wazuh.env.example"
+    copy_file "${PROJECT_DIR}/wazuh_integration/wazuh-localfile.xml.example" "${TARGET_PREFIX}/wazuh_integration/wazuh-localfile.xml.example"
+    copy_file "${PROJECT_DIR}/deploy/systemd/if_flow-wazuh-bridge.service" "${TARGET_SYSTEMD_DIR}/if_flow-wazuh-bridge.service"
+fi
 
-if (( INSTALL_ENV )); then
+if (( INSTALL_ENV )) && [[ "${DEPLOY_MODE}" == "host" ]]; then
     if [[ ! -f "${TARGET_ETC_DIR}/if_flow.env" ]]; then
         copy_file "${PROJECT_DIR}/deploy/systemd/if_flow.env.example" "${TARGET_ETC_DIR}/if_flow.env"
         log "installed env template to ${TARGET_ETC_DIR}/if_flow.env"
@@ -246,9 +286,19 @@ if (( INSTALL_ENV )); then
     else
         log "clickhouse env file already exists, keeping ${TARGET_ETC_DIR}/if_flow-clickhouse.env"
     fi
+
 fi
 
-if (( RELOAD_SYSTEMD )) && [[ -z "${DESTDIR}" ]]; then
+if (( INSTALL_ENV )) && (( WITH_WAZUH )); then
+    if [[ ! -f "${TARGET_ETC_DIR}/if_flow-wazuh.env" ]]; then
+        copy_file "${PROJECT_DIR}/deploy/systemd/if_flow-wazuh.env.example" "${TARGET_ETC_DIR}/if_flow-wazuh.env"
+        log "installed wazuh env template to ${TARGET_ETC_DIR}/if_flow-wazuh.env"
+    else
+        log "wazuh env file already exists, keeping ${TARGET_ETC_DIR}/if_flow-wazuh.env"
+    fi
+fi
+
+if (( RELOAD_SYSTEMD )) && [[ -z "${DESTDIR}" ]] && [[ "${DEPLOY_MODE}" == "host" ]]; then
     log "running systemctl daemon-reload"
     systemctl daemon-reload
 fi

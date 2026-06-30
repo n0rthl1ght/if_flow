@@ -62,10 +62,30 @@ clean:
 test: $(TARGET)
 	bash ./tests/run_tests.sh
 
-install-systemd: all
-	bash ./scripts/install_systemd_layout.sh
+install-host: all
+	bash ./scripts/install_systemd_layout.sh --mode host
 
-bootstrap-systemd:
-	sudo bash ./scripts/install_systemd_layout.sh --install-build-deps --build-all --reload-systemd
+bootstrap-host:
+	sudo bash ./scripts/install_systemd_layout.sh --mode host --install-build-deps --build-all --reload-systemd
 
-.PHONY: all clean test install-systemd bootstrap-systemd
+install-server:
+	bash ./scripts/install_systemd_layout.sh --mode server
+
+install-host-wazuh: all
+	bash ./scripts/install_systemd_layout.sh --mode host --with-wazuh
+
+bootstrap-host-wazuh:
+	sudo bash ./scripts/install_systemd_layout.sh --mode host --with-wazuh --install-build-deps --build-all --reload-systemd
+
+install-server-wazuh:
+	bash ./scripts/install_systemd_layout.sh --mode server --with-wazuh
+
+install-systemd: install-host
+
+bootstrap-systemd: bootstrap-host
+
+install-systemd-wazuh: install-host-wazuh
+
+bootstrap-systemd-wazuh: bootstrap-host-wazuh
+
+.PHONY: all clean test install-host bootstrap-host install-server install-host-wazuh bootstrap-host-wazuh install-server-wazuh install-systemd bootstrap-systemd install-systemd-wazuh bootstrap-systemd-wazuh
