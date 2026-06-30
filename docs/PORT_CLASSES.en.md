@@ -1,6 +1,6 @@
 # Classes and Ports
 
-Classification in `if_flow` is heuristic: the agent reads `src_port` and `dst_port` from each `TCP/UDP` packet and maps them through an internal rule table. Stronger signals can override plain port mapping:
+Classification in `if_flow` is heuristic: the agent reads `src_port` and `dst_port` from each `TCP/UDP/SCTP` packet and maps them through an internal rule table. Stronger signals can override plain port mapping:
 
 - `UDP 443/8443/9443` may be classified as `quic`
 - multicast destination traffic may be classified as `multicast`
@@ -25,6 +25,20 @@ For other messages, a more general fallback is used:
 
 - `icmp`
 - `icmpv6`
+
+## Protocols without ports
+
+For several IP protocols, the agent also does not use transport ports: `src_port=0`, `dst_port=0`, and the class is derived from the IP protocol number.
+
+- `igmp`
+- `gre`
+- `esp`
+- `ah`
+- `ospf`
+- `pim`
+- `vrrp`
+
+`SCTP` is tracked separately as `sctp`: it has its own transport-layer ports, so real `src_port` and `dst_port` values are preserved for it.
 
 ## Core network services
 

@@ -163,7 +163,8 @@ That file also captures the current heuristics, priorities, active infrastructur
 
 ## Current limits
 
-- only `TCP/UDP` are tracked today
+- `src_port` and `dst_port` are available for `TCP`, `UDP`, and `SCTP`
+- for `ICMP/ICMPv6`, `GRE`, `ESP`, `AH`, `OSPF`, `VRRP`, `IGMP`, and `PIM`, both ports are set to `0`, and the class is derived from the protocol number or `type/code`
 - `connections` are intentionally simplified in the current version
 - midstream TCP may miss the opening `SYN`, so soft flags are exposed
 - direction is host-relative

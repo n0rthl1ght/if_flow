@@ -44,6 +44,34 @@
 #ifndef DLT_RAW
 #define DLT_RAW 12
 #endif
+#ifndef IPPROTO_GRE
+#define IPPROTO_GRE 47
+#endif
+#ifndef IPPROTO_ESP
+#define IPPROTO_ESP 50
+#endif
+#ifndef IPPROTO_AH
+#define IPPROTO_AH 51
+#endif
+#ifndef IPPROTO_OSPF
+#define IPPROTO_OSPF 89
+#endif
+#ifndef IPPROTO_PIM
+#define IPPROTO_PIM 103
+#endif
+#ifndef IPPROTO_VRRP
+#define IPPROTO_VRRP 112
+#endif
+#ifndef IPPROTO_SCTP
+#define IPPROTO_SCTP 132
+#endif
+
+struct sctp_common_hdr {
+    uint16_t src_port;
+    uint16_t dst_port;
+    uint32_t verification_tag;
+    uint32_t checksum;
+};
 
 typedef struct {
     app_config_t cfg;
@@ -344,6 +372,29 @@ static const char *classify_icmp(uint8_t proto, uint8_t type, uint8_t code) {
     return NULL;
 }
 
+static const char *classify_ip_proto(uint8_t proto) {
+    switch (proto) {
+        case IPPROTO_IGMP:
+            return "igmp";
+        case IPPROTO_GRE:
+            return "gre";
+        case IPPROTO_ESP:
+            return "esp";
+        case IPPROTO_AH:
+            return "ah";
+        case IPPROTO_OSPF:
+            return "ospf";
+        case IPPROTO_PIM:
+            return "pim";
+        case IPPROTO_VRRP:
+            return "vrrp";
+        case IPPROTO_SCTP:
+            return "sctp";
+        default:
+            return NULL;
+    }
+}
+
 static const char *classify_by_early_port_rules(const flow_key_t *key) {
     static const uint16_t early_ports[] = {5353, 5355, 53, 853, 123};
     size_t i;
@@ -611,6 +662,15 @@ static void packet_handler(u_char *user, const struct pcap_pkthdr *hdr, const u_
             payload = l3 + l4ofs + sizeof(struct udphdr);
             payload_len = l3len - l4ofs - sizeof(struct udphdr);
             new_connection = 1;
+        } else if (proto == IPPROTO_SCTP) {
+            const struct sctp_common_hdr *sctp;
+            if (l3len < l4ofs + sizeof(struct sctp_common_hdr)) return;
+            sctp = (const struct sctp_common_hdr *)(l3 + l4ofs);
+            key.src_port = ntohs(sctp->src_port);
+            key.dst_port = ntohs(sctp->dst_port);
+            payload = l3 + l4ofs + sizeof(struct sctp_common_hdr);
+            payload_len = l3len - l4ofs - sizeof(struct sctp_common_hdr);
+            new_connection = 1;
         } else if (proto == IPPROTO_ICMP) {
             const struct icmphdr *icmp4;
             if (l3len < l4ofs + sizeof(struct icmphdr)) return;
@@ -626,6 +686,10 @@ static void packet_handler(u_char *user, const struct pcap_pkthdr *hdr, const u_
             icmp6 = (const struct icmp6_hdr *)(l3 + l4ofs);
             icmp_type = icmp6->icmp6_type;
             icmp_code = icmp6->icmp6_code;
+            key.src_port = 0;
+            key.dst_port = 0;
+            new_connection = 1;
+        } else if (classify_ip_proto(proto)) {
             key.src_port = 0;
             key.dst_port = 0;
             new_connection = 1;
@@ -661,6 +725,9 @@ static void packet_handler(u_char *user, const struct pcap_pkthdr *hdr, const u_
     }
     if (proto == IPPROTO_ICMP || proto == IPPROTO_ICMPV6) {
         class_tag = classify_icmp(proto, icmp_type, icmp_code);
+        if (!class_tag) class_tag = "other";
+    } else if (proto != IPPROTO_TCP && proto != IPPROTO_UDP) {
+        class_tag = classify_ip_proto(proto);
         if (!class_tag) class_tag = "other";
     } else {
         class_tag = classify_flow(&key, sni, host);
@@ -762,6 +829,14 @@ static int run_selftest(void) {
     flow_key_t key14 = {0};
     flow_key_t key15 = {0};
     flow_key_t key16 = {0};
+    flow_key_t key17 = {0};
+    flow_key_t key18 = {0};
+    flow_key_t key19 = {0};
+    flow_key_t key20 = {0};
+    flow_key_t key21 = {0};
+    flow_key_t key22 = {0};
+    flow_key_t key23 = {0};
+    flow_key_t key24 = {0};
     snprintf(key6.src_ip, sizeof(key6.src_ip), "10.0.0.50");
     snprintf(key6.dst_ip, sizeof(key6.dst_ip), "8.8.8.8");
     key6.proto = IPPROTO_UDP;
@@ -821,6 +896,40 @@ static int run_selftest(void) {
     snprintf(key16.src_ip, sizeof(key16.src_ip), "fe80::2");
     snprintf(key16.dst_ip, sizeof(key16.dst_ip), "ff02::2");
     key16.proto = IPPROTO_ICMPV6;
+
+    snprintf(key17.src_ip, sizeof(key17.src_ip), "10.0.0.86");
+    snprintf(key17.dst_ip, sizeof(key17.dst_ip), "10.0.0.87");
+    key17.proto = IPPROTO_GRE;
+
+    snprintf(key18.src_ip, sizeof(key18.src_ip), "10.0.0.88");
+    snprintf(key18.dst_ip, sizeof(key18.dst_ip), "10.0.0.89");
+    key18.proto = IPPROTO_ESP;
+
+    snprintf(key19.src_ip, sizeof(key19.src_ip), "10.0.0.90");
+    snprintf(key19.dst_ip, sizeof(key19.dst_ip), "10.0.0.91");
+    key19.proto = IPPROTO_AH;
+
+    snprintf(key20.src_ip, sizeof(key20.src_ip), "10.0.0.92");
+    snprintf(key20.dst_ip, sizeof(key20.dst_ip), "224.0.0.5");
+    key20.proto = IPPROTO_OSPF;
+
+    snprintf(key21.src_ip, sizeof(key21.src_ip), "10.0.0.93");
+    snprintf(key21.dst_ip, sizeof(key21.dst_ip), "224.0.0.18");
+    key21.proto = IPPROTO_VRRP;
+
+    snprintf(key22.src_ip, sizeof(key22.src_ip), "10.0.0.94");
+    snprintf(key22.dst_ip, sizeof(key22.dst_ip), "224.0.0.22");
+    key22.proto = IPPROTO_IGMP;
+
+    snprintf(key23.src_ip, sizeof(key23.src_ip), "10.0.0.95");
+    snprintf(key23.dst_ip, sizeof(key23.dst_ip), "224.0.0.13");
+    key23.proto = IPPROTO_PIM;
+
+    snprintf(key24.src_ip, sizeof(key24.src_ip), "10.0.0.96");
+    snprintf(key24.dst_ip, sizeof(key24.dst_ip), "10.0.0.97");
+    key24.proto = IPPROTO_SCTP;
+    key24.src_port = 5000;
+    key24.dst_port = 5001;
 
     if (!parser_extract_tls_sni(tls_client_hello, sizeof(tls_client_hello), sni, sizeof(sni))) {
         fprintf(stderr, "selftest: failed to parse TLS SNI\n");
@@ -900,6 +1009,38 @@ static int run_selftest(void) {
     }
     if (strcmp(classify_icmp(IPPROTO_ICMPV6, ICMP6_ECHO_REPLY, 0), "icmpv6_echo") != 0) {
         fprintf(stderr, "selftest: expected icmpv6_echo class\n");
+        return 1;
+    }
+    if (strcmp(classify_ip_proto(IPPROTO_GRE), "gre") != 0) {
+        fprintf(stderr, "selftest: expected gre class\n");
+        return 1;
+    }
+    if (strcmp(classify_ip_proto(IPPROTO_ESP), "esp") != 0) {
+        fprintf(stderr, "selftest: expected esp class\n");
+        return 1;
+    }
+    if (strcmp(classify_ip_proto(IPPROTO_AH), "ah") != 0) {
+        fprintf(stderr, "selftest: expected ah class\n");
+        return 1;
+    }
+    if (strcmp(classify_ip_proto(IPPROTO_OSPF), "ospf") != 0) {
+        fprintf(stderr, "selftest: expected ospf class\n");
+        return 1;
+    }
+    if (strcmp(classify_ip_proto(IPPROTO_VRRP), "vrrp") != 0) {
+        fprintf(stderr, "selftest: expected vrrp class\n");
+        return 1;
+    }
+    if (strcmp(classify_ip_proto(IPPROTO_IGMP), "igmp") != 0) {
+        fprintf(stderr, "selftest: expected igmp class\n");
+        return 1;
+    }
+    if (strcmp(classify_ip_proto(IPPROTO_PIM), "pim") != 0) {
+        fprintf(stderr, "selftest: expected pim class\n");
+        return 1;
+    }
+    if (strcmp(classify_ip_proto(IPPROTO_SCTP), "sctp") != 0) {
+        fprintf(stderr, "selftest: expected sctp class\n");
         return 1;
     }
 

@@ -1,6 +1,6 @@
 # if_flow
 
-Host-level network traffic accounting agent written in C. It captures TCP/UDP traffic, aggregates it in memory, enriches flows with optional process and application metadata, and exports minute-based records without storing raw packets.
+Host-level network traffic accounting agent written in C. It captures TCP/UDP traffic plus selected IP protocols such as ICMP/ICMPv6, GRE, ESP, AH, OSPF, VRRP, IGMP, PIM, and SCTP, aggregates them in memory, enriches flows with optional process and application metadata, and exports minute-based records without storing raw packets.
 
 Documentation:
 
