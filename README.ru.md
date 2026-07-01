@@ -225,8 +225,8 @@ sudo systemctl enable --now if_flow-clickhouse-uploader.service
 | Новый host | `sudo make bootstrap-host` | зависимости, сборка, `if_flow`, uploader, host `systemd` units |
 | Подготовленный host + Wazuh | `make install-host-wazuh` | host stack + optional Wazuh bridge |
 | Новый host + Wazuh | `sudo make bootstrap-host-wazuh` | зависимости, сборка, host stack + optional Wazuh bridge |
-| Server | `make install-server` | `ClickHouse/Grafana` assets, dashboards, queries, compose files |
-| Server + Wazuh | `make install-server-wazuh` | server assets + optional Wazuh bridge |
+| Server | `make install-server` | `ClickHouse/Grafana` assets, dashboards, queries, compose files, локальные storage-каталоги |
+| Server + Wazuh | `make install-server-wazuh` | server assets, локальные storage-каталоги + optional Wazuh bridge |
 
 Bootstrap-режим для нового хоста:
 
@@ -257,6 +257,19 @@ make install-server-wazuh
 3. Заполнить env-файлы в `/opt/if_flow/deploy/systemd/`
 4. Запустить `if_flow.service`
 5. При необходимости включить `if_flow-clickhouse-uploader.service`
+
+Практический порядок для сервера:
+
+1. Выполнить `sudo make install-server`
+2. Перейти в `/opt/if_flow/clickhouse_uploader`
+3. Скопировать `.env.example` в `.env`
+4. Проверить, что созданы локальные каталоги:
+   - `/opt/if_flow/clickhouse_uploader/storage/clickhouse/data`
+   - `/opt/if_flow/clickhouse_uploader/storage/clickhouse/logs`
+   - `/opt/if_flow/clickhouse_uploader/storage/grafana/data`
+5. Запустить `docker compose up -d`
+
+По умолчанию ClickHouse и Grafana в bundled `docker-compose.yml` используют bind mount-хранение на хосте, а не Docker named volumes. Данные БД лежат локально в каталоге проекта рядом с compose-файлом.
 
 Практический порядок для сервера:
 

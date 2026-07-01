@@ -242,6 +242,10 @@ copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/queries/class_breakdown.sq
 copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/queries/top_pairs.sql" "${TARGET_PREFIX}/clickhouse_uploader/grafana/queries/top_pairs.sql"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/queries/top_processes.sql" "${TARGET_PREFIX}/clickhouse_uploader/grafana/queries/top_processes.sql"
 copy_file "${PROJECT_DIR}/clickhouse_uploader/grafana/queries/tcp_without_syn.sql" "${TARGET_PREFIX}/clickhouse_uploader/grafana/queries/tcp_without_syn.sql"
+install -d -m 0755 \
+    "${TARGET_PREFIX}/clickhouse_uploader/storage/clickhouse/data" \
+    "${TARGET_PREFIX}/clickhouse_uploader/storage/clickhouse/logs" \
+    "${TARGET_PREFIX}/clickhouse_uploader/storage/grafana/data"
 
 if [[ "${DEPLOY_MODE}" == "host" ]]; then
     copy_exec "${PROJECT_DIR}/if_flow" "${TARGET_PREFIX}/if_flow"

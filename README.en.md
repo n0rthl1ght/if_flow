@@ -221,8 +221,8 @@ Command matrix:
 | Fresh host | `sudo make bootstrap-host` | dependencies, build output, `if_flow`, uploader, host-side `systemd` units |
 | Prepared host + Wazuh | `make install-host-wazuh` | host stack + optional Wazuh bridge |
 | Fresh host + Wazuh | `sudo make bootstrap-host-wazuh` | dependencies, build output, host stack + optional Wazuh bridge |
-| Server | `make install-server` | `ClickHouse/Grafana` assets, dashboards, queries, compose files |
-| Server + Wazuh | `make install-server-wazuh` | server assets + optional Wazuh bridge |
+| Server | `make install-server` | `ClickHouse/Grafana` assets, dashboards, queries, compose files, local storage directories |
+| Server + Wazuh | `make install-server-wazuh` | server assets, local storage directories + optional Wazuh bridge |
 
 Bootstrap mode for a fresh host:
 
@@ -256,8 +256,16 @@ Practical host deployment flow:
 
 Practical server deployment flow:
 
-1. Install server assets with `make install-server`
+1. Install server assets with `sudo make install-server`
 2. Change into `/opt/if_flow/clickhouse_uploader`
+3. Copy `.env.example` to `.env`
+4. Verify that local storage directories exist:
+   - `/opt/if_flow/clickhouse_uploader/storage/clickhouse/data`
+   - `/opt/if_flow/clickhouse_uploader/storage/clickhouse/logs`
+   - `/opt/if_flow/clickhouse_uploader/storage/grafana/data`
+5. Start the Docker stack with `docker compose up -d`
+
+By default, the bundled Docker stack uses host-side bind mounts instead of Docker named volumes, so ClickHouse and Grafana data remain in the project directory next to `docker-compose.yml`.
 3. prepare `.env`
 4. run `docker compose up -d --build`
 

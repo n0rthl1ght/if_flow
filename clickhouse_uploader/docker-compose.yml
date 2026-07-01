@@ -13,7 +13,8 @@ services:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-change_me_clickhouse}
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
     volumes:
-      - clickhouse_data:/var/lib/clickhouse
+      - ./storage/clickhouse/data:/var/lib/clickhouse
+      - ./storage/clickhouse/logs:/var/log/clickhouse-server
       - ./schema.sql:/docker-entrypoint-initdb.d/01_if_flow_schema.sql:ro
     ulimits:
       nofile:
@@ -39,9 +40,5 @@ services:
     ports:
       - "${GRAFANA_PORT:-3001}:3000"
     volumes:
-      - grafana_data:/var/lib/grafana
+      - ./storage/grafana/data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
-
-volumes:
-  clickhouse_data:
-  grafana_data:

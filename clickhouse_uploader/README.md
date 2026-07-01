@@ -10,6 +10,7 @@
 - `.env.example` - Docker stack environment template
 - `if_flow-clickhouse.env.example` - local uploader environment template
 - `grafana/` - provisioning files, starter SQL, importable dashboard
+- `storage/` - local bind-mounted host storage created next to the compose file
 
 ## Uploader behavior
 
@@ -84,11 +85,18 @@ The bundled `docker-compose.yml` starts:
 - ClickHouse
 - Grafana
 
+By default, both services use local bind mounts next to the compose file instead of Docker named volumes:
+
+- `./storage/clickhouse/data` - ClickHouse data directory
+- `./storage/clickhouse/logs` - ClickHouse logs
+- `./storage/grafana/data` - Grafana persistent state
+
 Quick start:
 
 ```bash
 cd clickhouse_uploader
 cp .env.example .env
+mkdir -p storage/clickhouse/data storage/clickhouse/logs storage/grafana/data
 docker compose up -d --build
 ```
 
@@ -99,6 +107,7 @@ Default ports can be customized through `.env`:
 - Grafana UI: `${GRAFANA_PORT}`
 
 All credentials are now controlled through `.env` placeholders rather than hardcoded values in the compose file.
+This also means the database remains on the host filesystem and survives compose recreation as ordinary local files.
 
 ## Grafana-first visualization
 
@@ -247,6 +256,16 @@ sudo make bootstrap-systemd
 Then fill in `/opt/if_flow/deploy/systemd/if_flow-clickhouse.env` and enable the uploader service.
 
 The systemd unit intentionally starts `run_uploader_loop.sh`, not the Python file directly, so host deployment follows the same execution path as manual loop testing.
+
+## Server-side local storage
+
+When you install server assets with `make install-server`, the installer also creates local storage directories under:
+
+- `/opt/if_flow/clickhouse_uploader/storage/clickhouse/data`
+- `/opt/if_flow/clickhouse_uploader/storage/clickhouse/logs`
+- `/opt/if_flow/clickhouse_uploader/storage/grafana/data`
+
+This is the default production layout for the bundled Docker stack.
 
 ## Retention
 
